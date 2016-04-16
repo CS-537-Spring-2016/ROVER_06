@@ -46,31 +46,35 @@ public class CapitalClient {
                     new InputStreamReader(socket.getInputStream()));
             outToServer = new DataOutputStream(socket.getOutputStream());
 
-            // request String from user
-            System.out.print("Enter a String: ");
-            String userInput = inFromUser.readLine();
+            while (true) {
+                // request String from user
+                System.out.print("Enter a String: ");
+                String userInput = inFromUser.readLine();
 
-            // write to socket (in bytes)
-            // add "\n" so when server call readLine(), it knows when to end
-            outToServer.writeBytes(userInput + "\n");
-            System.out.println("CLIENT: sending message to server ...");
-            
-            // get input from server and display it
-            userInput = inFromServer.readLine();
-            System.out.println("FROM SERVER: " + userInput);
-            
-        } catch (UnknownHostException e) {
+                // write to socket (in bytes)
+                // add "\n" so when server call readLine(), it knows when to end
+                outToServer.writeBytes(userInput + "\n");
+                System.out.println("CLIENT: sending message to server ...");
+
+                // get input from server and display it
+                userInput = inFromServer.readLine();
+                System.out.println("FROM SERVER: " + userInput);
+            }
+
+        } catch (
+
+        UnknownHostException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    
+
     // run the client
     public static void main(String[] args) {
         CapitalClient client = new CapitalClient("localhost", 8000);
         client.run();
-        
+
     }
 
 }
