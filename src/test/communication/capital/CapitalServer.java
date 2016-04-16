@@ -64,16 +64,19 @@ public class CapitalServer {
             e.printStackTrace();
         }
     }
-    
+
     /*
      * Multiple clients can connect to the sever and be serve at the same time
      * 
-     * As our rover communication module would required to talk to 8 other teams,
-     * we need to test basic communication over multiple clients at the same time.
+     * As our rover communication module would required to talk to 8 other
+     * teams, we need to test basic communication over multiple clients at the
+     * same time.
      * 
      * When a client connects, a thread will be created and serve that client
      * continuously
      * 
+     * the threads run independently of one another communicate with the
+     * clients.
      */
     public class ClientThread implements Runnable {
 

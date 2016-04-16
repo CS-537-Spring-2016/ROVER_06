@@ -39,8 +39,10 @@ public class CapitalClient {
             socket = new Socket(host, port);
             System.out.println("CLIENT: connected");
 
-            // Initialize I/O: [ read user input, read server input, write
-            // output ]
+            /*
+             * Initialize I/O: [ read user input, read server input, write
+             * output ]
+             */
             inFromUser = new BufferedReader(new InputStreamReader(System.in));
             inFromServer = new BufferedReader(
                     new InputStreamReader(socket.getInputStream()));
