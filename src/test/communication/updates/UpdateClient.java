@@ -1,7 +1,6 @@
 package test.communication.updates;
 
 import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
@@ -13,10 +12,12 @@ public class UpdateClient {
     private int port;
     private Socket socket;
     private BufferedReader inFromServer;
+    private String clientName;
 
-    public UpdateClient(String host, int port) {
+    public UpdateClient(String host, int port, String clientName) {
         this.host = host;
         this.port = port;
+        this.clientName = clientName;
     }
 
     public void run() {
@@ -33,8 +34,11 @@ public class UpdateClient {
 
             while (true) {
                 // display server output
-                
-
+                String msg = inFromServer.readLine();
+                if (msg != null) {
+                    System.out.println("to " + clientName + ": "
+                            + msg);
+                }
             }
 
         } catch (
@@ -45,12 +49,4 @@ public class UpdateClient {
             e.printStackTrace();
         }
     }
-
-    // run the client
-    public static void main(String[] args) {
-        UpdateClient client = new UpdateClient("localhost", 9000);
-        client.run();
-
-    }
-
 }

@@ -15,9 +15,9 @@ import java.util.HashSet;
  * This program is a simulation of what the rover communication module.
  * We expect our rover to continuously update all the other rover about its
  * location and the map. But before we can begin writing for it, we should
- * Familiarize ourself with a simple program first.
+ * familiarize ourself with a simple program first.
  * 
- * This program / test seek to build on what we learned on our capital client / server.
+ * This program/test seek to build on what we learned on our capital client/server.
  * That is: socket programming, threading, and IO streams.
  */
 public class UpdateServer {
@@ -27,11 +27,13 @@ public class UpdateServer {
     private int port;
     private HashSet<DataOutputStream> writers;
     private int clientNo;
+    private static int count;
 
     public UpdateServer(int port) {
         this.port = port;
         clientNo = 0;
         writers = new HashSet<DataOutputStream>();
+        count = 0;
     }
 
     public void run() {
@@ -64,7 +66,7 @@ public class UpdateServer {
     }
 
     /*
-     * Multiple clients can connect to the sever and be serve at the same time
+     * Multiple clients can connect to the sever and be served at the same time
      * 
      * As our rover communication module would required to talk to 8 other
      * teams, we need to test basic communication over multiple clients at the
@@ -100,8 +102,15 @@ public class UpdateServer {
 
                 while (true) {
 
+                    // write a msg to all the clients
                     for (DataOutputStream element : writers) {
-                        element.writeBytes("hello world\n");
+                        element.writeBytes(count + " hello world\n");
+
+                        /*
+                         * keep track of the total number of message the server
+                         * writes for testing purpose
+                         */
+                        count++;
                         Thread.sleep(1000);
                     }
                 }
@@ -109,6 +118,14 @@ public class UpdateServer {
                 ex.printStackTrace();
             } catch (InterruptedException e) {
                 e.printStackTrace();
+            } finally {
+                if(!socket.isClosed()) {
+                    try {
+                    socket.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                } 
             }
         }
 
