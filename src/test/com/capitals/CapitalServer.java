@@ -1,4 +1,4 @@
-package test.communication.capital;
+package test.com.capitals;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
