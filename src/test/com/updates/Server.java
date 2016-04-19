@@ -121,7 +121,7 @@ public class Server {
     }
 
     public static void main(String[] args) {
-        Server server = new Server(9000);
+        Server server = new Server(8000);
         server.run();
     }
 
