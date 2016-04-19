@@ -35,22 +35,26 @@ public class ROVER_06 {
     static final int PORT_ADDRESS = 9537;
 
     public ROVER_06() {
-        // constructor
         System.out.println("ROVER_06 rover object constructed");
         rovername = "ROVER_06";
         SERVER_ADDRESS = "localhost";
+
         // this should be a safe but slow timer value
-        sleepTime = 300; // in milliseconds - smaller is faster, but the server
-                         // will cut connection if it is too small
+        // in milliseconds - smaller is faster, but the server
+        // will cut connection if it is too small
+        sleepTime = 300;
+
     }
 
     public ROVER_06(String serverAddress) {
-        // constructor
         System.out.println("ROVER_06 rover object constructed");
         rovername = "ROVER_06";
         SERVER_ADDRESS = serverAddress;
-        sleepTime = 200; // in milliseconds - smaller is faster, but the server
-                         // will cut connection if it is too small
+
+        // in milliseconds - smaller is faster, but the server
+        // will cut connection if it is too small
+        sleepTime = 200;
+
     }
 
     /**
@@ -59,9 +63,8 @@ public class ROVER_06 {
     private void run() throws IOException, InterruptedException {
 
         // Make connection and initialize streams
-        // TODO - need to close this socket
-        Socket socket = new Socket(SERVER_ADDRESS, PORT_ADDRESS); // set port
-                                                                  // here
+        Socket socket = new Socket(SERVER_ADDRESS, PORT_ADDRESS);
+
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         out = new PrintWriter(socket.getOutputStream(), true);
 
@@ -72,9 +75,10 @@ public class ROVER_06 {
         while (true) {
             String line = in.readLine();
             if (line.startsWith("SUBMITNAME")) {
-                out.println(rovername); // This sets the name of this instance
-                                        // of a swarmBot for identifying the
-                                        // thread to the server
+
+                // This sets the name of this instance of a swarmBot for
+                // identifying thread to the server
+                out.println(rovername);
                 break;
             }
         }
@@ -84,9 +88,9 @@ public class ROVER_06 {
         String line = "";
 
         boolean goingSouth = false;
-        boolean stuck = false; // just means it did not change locations between
-                               // requests,
-                               // could be velocity limit or obstruction etc.
+        // just means it did not change locations between requests, could be
+        // velocity limit or obstruction etc.
+        boolean stuck = false;
         boolean blocked = false;
 
         String[] cardinals = new String[4];
