@@ -376,15 +376,51 @@ public class ROVER_06 {
         }
     }
 
+    /** the rover move logic */
     private void masterMove(Direction direction, MapTile[][] scanMapTiles,
             int centerIndex) {
         if (isNextBlock(direction, scanMapTiles, centerIndex)) {
-            currentDirection = findGoodDirection(direction, scanMapTiles,
+            Direction goodDirection = findGoodDirection(direction, scanMapTiles,
                     centerIndex);
-            masterMove(currentDirection, scanMapTiles, centerIndex);
+            if (isNextEdge(direction, scanMapTiles, centerIndex)) {
+                currentDirection = findGoodDirection(direction, scanMapTiles,
+                        centerIndex);
+                move(currentDirection);
+            } else {
+                move(goodDirection);
+            }
+
         } else {
             move(direction);
         }
+    }
+
+    /**
+     * determine if the rover is about to reach a "NONE" tile. use to indicate
+     * that you've reach the edge of the map and may need to permantly change
+     * direction
+     */
+    private boolean isNextEdge(Direction direction, MapTile[][] scanMapTiles,
+            int centerIndex) {
+
+        switch (direction) {
+        case NORTH:
+            return isNone(scanMapTiles[centerIndex][centerIndex - 1]);
+        case SOUTH:
+            return isNone(scanMapTiles[centerIndex][centerIndex + 1]);
+        case WEST:
+            return isNone(scanMapTiles[centerIndex - 1][centerIndex]);
+        case EAST:
+            return isNone(scanMapTiles[centerIndex + 1][centerIndex]);
+        default:
+            // this code should be unreachable
+            return false;
+        }
+    }
+
+    /** determine if the tile is NONE */
+    private boolean isNone(MapTile tile) {
+        return tile.getTerrain() == Terrain.NONE;
     }
 
     /**
