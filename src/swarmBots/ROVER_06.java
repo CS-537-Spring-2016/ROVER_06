@@ -35,8 +35,11 @@ public class ROVER_06 {
     String SERVER_ADDRESS = "localhost";
     static final int PORT_ADDRESS = 9537;
 
-
-    Direction currentDirection = Direction.EAST;
+    Direction currentDirection = Direction.SOUTH;
+    Direction previousDirection;
+    boolean changeDirection = false;
+    final int MAX_CHANGE_COUNT = 3;
+    int changeCount = 0;
 
     // just means it did not change locations between requests, could be
     // velocity limit or obstruction etc.
@@ -154,57 +157,28 @@ public class ROVER_06 {
             // is blocked. if it IS block, check the next path, and so on etc,
             if (blocked) {
                 System.out.println("###Rover is blocked###");
-                switch (currentDirection) {
-                case NORTH:
-                    currentDirection = Direction.WEST;
-                    break;
-                case SOUTH:
-                    currentDirection = Direction.EAST;
-                    break;
-                case WEST:
-                    currentDirection = Direction.SOUTH;
-                    break;
-                case EAST:
-                    currentDirection = Direction.NORTH;
-                    break;
-                }
+                previousDirection = currentDirection;
+                currentDirection = changeDirection(currentDirection);
                 blocked = false;
+                changeDirection = true;
+                changeCount = 0;
+            } else if (changeDirection) {
 
+                blocked = isNextBlock(currentDirection, scanMapTiles,
+                        centerIndex);
+                if (!blocked) {
+                    move(currentDirection);
+                    if (changeCount++ >= MAX_CHANGE_COUNT) {
+                        changeDirection = false;
+                        currentDirection = previousDirection;
+                    }
+                }
             } else {
 
-                switch (currentDirection) {
-                case NORTH:
-                    if (isNextBlock(currentDirection, scanMapTiles,
-                            centerIndex)) {
-                        blocked = true;
-                    } else {
-                        out.println("MOVE N");
-                    }
-                    break;
-                case SOUTH:
-                    if (isNextBlock(currentDirection, scanMapTiles,
-                            centerIndex)) {
-                        blocked = true;
-                    } else {
-                        out.println("MOVE S");
-                    }
-                    break;
-                case WEST:
-                    if (isNextBlock(currentDirection, scanMapTiles,
-                            centerIndex)) {
-                        blocked = true;
-                    } else {
-                        out.println("MOVE W");
-                    }
-                    break;
-                case EAST:
-                    if (isNextBlock(currentDirection, scanMapTiles,
-                            centerIndex)) {
-                        blocked = true;
-                    } else {
-                        out.println("MOVE E");
-                    }
-                    break;
+                blocked = isNextBlock(currentDirection, scanMapTiles,
+                        centerIndex);
+                if (!blocked) {
+                    move(currentDirection);
                 }
             }
 
@@ -371,6 +345,38 @@ public class ROVER_06 {
                 Terrain.SAND);
         Terrain terrain = tile.getTerrain();
         return tile.getHasRover() || blockers.contains(terrain);
+    }
+
+    private Direction changeDirection(Direction direction) {
+        switch (direction) {
+        case NORTH:
+            return Direction.WEST;
+        case SOUTH:
+            return Direction.EAST;
+        case WEST:
+            return Direction.SOUTH;
+        case EAST:
+            return Direction.NORTH;
+        default:
+            return null;
+        }
+    }
+
+    private void move(Direction direction) {
+        switch (direction) {
+        case NORTH:
+            out.println("MOVE N");
+            break;
+        case SOUTH:
+            out.println("MOVE S");
+            break;
+        case WEST:
+            out.println("MOVE W");
+            break;
+        case EAST:
+            out.println("MOVE E");
+            break;
+        }
     }
 
     /**
