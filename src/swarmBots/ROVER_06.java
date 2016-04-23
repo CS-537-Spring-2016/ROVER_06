@@ -4,9 +4,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.lang.reflect.Type;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import com.google.gson.Gson;
@@ -16,6 +16,7 @@ import com.google.gson.reflect.TypeToken;
 import common.Coord;
 import common.MapTile;
 import common.ScanMap;
+import enums.Direction;
 import enums.Terrain;
 
 /**
@@ -33,6 +34,14 @@ public class ROVER_06 {
     int sleepTime;
     String SERVER_ADDRESS = "localhost";
     static final int PORT_ADDRESS = 9537;
+
+
+    Direction currentDirection = Direction.EAST;
+
+    // just means it did not change locations between requests, could be
+    // velocity limit or obstruction etc.
+    boolean stuck = false;
+    boolean blocked = false;
 
     public ROVER_06() {
         System.out.println("ROVER_06 rover object constructed");
@@ -87,12 +96,6 @@ public class ROVER_06 {
         // int cnt=0;
         String line = "";
 
-        boolean goingSouth = false;
-        // just means it did not change locations between requests, could be
-        // velocity limit or obstruction etc.
-        boolean stuck = false;
-        boolean blocked = false;
-
         String[] cardinals = new String[4];
         cardinals[0] = "N";
         cardinals[1] = "E";
@@ -140,59 +143,68 @@ public class ROVER_06 {
             scanMap.debugPrintMap();
 
             // ***** MOVING *****
-            // try moving east 5 block if blocked
+
+            // pull the MapTile array out of the ScanMap object
+            MapTile[][] scanMapTiles = scanMap.getScanMap();
+            int centerIndex = (scanMap.getEdgeSize() - 1) / 2;
+            // tile S = y + 1; N = y - 1; E = x + 1; W = x - 1
+
+            // if the path the rover is heading to is block then check to see if
+            // the next path [east, west, north, south].
+            // is blocked. if it IS block, check the next path, and so on etc,
             if (blocked) {
-                for (int i = 0; i < 5; i++) {
-                    out.println("MOVE E");
-                    // System.out.println("ROVER_06 request move E");
-                    Thread.sleep(300);
+                System.out.println("###Rover is blocked###");
+                switch (currentDirection) {
+                case NORTH:
+                    currentDirection = Direction.WEST;
+                    break;
+                case SOUTH:
+                    currentDirection = Direction.EAST;
+                    break;
+                case WEST:
+                    currentDirection = Direction.SOUTH;
+                    break;
+                case EAST:
+                    currentDirection = Direction.NORTH;
+                    break;
                 }
                 blocked = false;
-                // reverses direction after being blocked
-                goingSouth = !goingSouth;
+
             } else {
 
-                // pull the MapTile array out of the ScanMap object
-                MapTile[][] scanMapTiles = scanMap.getScanMap();
-                int centerIndex = (scanMap.getEdgeSize() - 1) / 2;
-                // tile S = y + 1; N = y - 1; E = x + 1; W = x - 1
-
-                if (goingSouth) {
-                    // check scanMap to see if path is blocked to the south
-                    // (scanMap may be old data by now)
-                    if (scanMapTiles[centerIndex][centerIndex + 1].getHasRover()
-                            || scanMapTiles[centerIndex][centerIndex + 1]
-                                    .getTerrain() == Terrain.ROCK
-                            || scanMapTiles[centerIndex][centerIndex + 1]
-                                    .getTerrain() == Terrain.NONE) {
+                switch (currentDirection) {
+                case NORTH:
+                    if (isNextBlock(currentDirection, scanMapTiles,
+                            centerIndex)) {
                         blocked = true;
                     } else {
-                        // request to server to move
-                        out.println("MOVE S");
-                        // System.out.println("ROVER_06 request move S");
-                    }
-
-                } else {
-                    // check scanMap to see if path is blocked to the north
-                    // (scanMap may be old data by now)
-                    // System.out.println("ROVER_06
-                    // scanMapTiles[2][1].getHasRover() " +
-                    // scanMapTiles[2][1].getHasRover());
-                    // System.out.println("ROVER_06
-                    // scanMapTiles[2][1].getTerrain() " +
-                    // scanMapTiles[2][1].getTerrain().toString());
-
-                    if (scanMapTiles[centerIndex][centerIndex - 1].getHasRover()
-                            || scanMapTiles[centerIndex][centerIndex - 1]
-                                    .getTerrain() == Terrain.ROCK
-                            || scanMapTiles[centerIndex][centerIndex - 1]
-                                    .getTerrain() == Terrain.NONE) {
-                        blocked = true;
-                    } else {
-                        // request to server to move
                         out.println("MOVE N");
-                        // System.out.println("ROVER_06 request move N");
                     }
+                    break;
+                case SOUTH:
+                    if (isNextBlock(currentDirection, scanMapTiles,
+                            centerIndex)) {
+                        blocked = true;
+                    } else {
+                        out.println("MOVE S");
+                    }
+                    break;
+                case WEST:
+                    if (isNextBlock(currentDirection, scanMapTiles,
+                            centerIndex)) {
+                        blocked = true;
+                    } else {
+                        out.println("MOVE W");
+                    }
+                    break;
+                case EAST:
+                    if (isNextBlock(currentDirection, scanMapTiles,
+                            centerIndex)) {
+                        blocked = true;
+                    } else {
+                        out.println("MOVE E");
+                    }
+                    break;
                 }
             }
 
@@ -334,6 +346,31 @@ public class ROVER_06 {
             return new Coord(Integer.parseInt(xStr), Integer.parseInt(yStr));
         }
         return null;
+    }
+
+    public boolean isNextBlock(Direction currentDirection,
+            MapTile[][] scanMapTiles, int centerIndex) {
+
+        switch (currentDirection) {
+        case NORTH:
+            return isBlockTerrian(scanMapTiles[centerIndex][centerIndex - 1]);
+        case SOUTH:
+            return isBlockTerrian(scanMapTiles[centerIndex][centerIndex + 1]);
+        case WEST:
+            return isBlockTerrian(scanMapTiles[centerIndex - 1][centerIndex]);
+        case EAST:
+            return isBlockTerrian(scanMapTiles[centerIndex + 1][centerIndex]);
+        default:
+            // this code should be unreachable
+            return false;
+        }
+    }
+
+    private boolean isBlockTerrian(MapTile tile) {
+        List<Terrain> blockers = Arrays.asList(Terrain.ROCK, Terrain.NONE,
+                Terrain.SAND);
+        Terrain terrain = tile.getTerrain();
+        return tile.getHasRover() || blockers.contains(terrain);
     }
 
     /**
