@@ -175,18 +175,12 @@ public class ROVER_06 {
                     }
                 }
             } else {
-                
                 System.out.println("### MOVE COUNT: " + moveCount + " ###");
                 blocked = isNextBlock(currentDirection, scanMapTiles,
                         centerIndex);
                 if (!blocked) {
                     move(currentDirection);
                 }
-//                if(moveCount++ % MAX_MOVE_COUNT == 0) {
-//                    changeDirection = true;
-//                    previousDirection = currentDirection;
-//                    currentDirection = changeDirection(currentDirection);
-//                }
             }
 
             // another call for current location
@@ -329,31 +323,34 @@ public class ROVER_06 {
         return null;
     }
 
+    /** determine if the rover is about to reach a "blocked" tile */
     public boolean isNextBlock(Direction inputDirection,
             MapTile[][] scanMapTiles, int centerIndex) {
 
         switch (inputDirection) {
         case NORTH:
-            return isBlock(scanMapTiles[centerIndex][centerIndex - 1]);
+            return isBlocked(scanMapTiles[centerIndex][centerIndex - 1]);
         case SOUTH:
-            return isBlock(scanMapTiles[centerIndex][centerIndex + 1]);
+            return isBlocked(scanMapTiles[centerIndex][centerIndex + 1]);
         case WEST:
-            return isBlock(scanMapTiles[centerIndex - 1][centerIndex]);
+            return isBlocked(scanMapTiles[centerIndex - 1][centerIndex]);
         case EAST:
-            return isBlock(scanMapTiles[centerIndex + 1][centerIndex]);
+            return isBlocked(scanMapTiles[centerIndex + 1][centerIndex]);
         default:
             // this code should be unreachable
             return false;
         }
     }
 
-    private boolean isBlock(MapTile tile) {
+    /** determine if the rover is on ROCK NONE OR SAND */
+    private boolean isBlocked(MapTile tile) {
         List<Terrain> blockers = Arrays.asList(Terrain.ROCK, Terrain.NONE,
                 Terrain.SAND);
         Terrain terrain = tile.getTerrain();
         return tile.getHasRover() || blockers.contains(terrain);
     }
 
+    /** return a DIFFERENT direction */
     private Direction changeDirection(Direction direction) {
         switch (direction) {
         case NORTH:
@@ -369,6 +366,7 @@ public class ROVER_06 {
         }
     }
 
+    /** move the rover one tile */
     private void move(Direction direction) {
         switch (direction) {
         case NORTH:
@@ -385,7 +383,6 @@ public class ROVER_06 {
             break;
         }
     }
-
     /**
      * Runs the client
      */
