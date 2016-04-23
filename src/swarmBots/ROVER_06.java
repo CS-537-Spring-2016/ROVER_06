@@ -40,6 +40,8 @@ public class ROVER_06 {
     boolean changeDirection = false;
     final int MAX_CHANGE_COUNT = 3;
     int changeCount = 0;
+    int moveCount = 0;
+    final int MAX_MOVE_COUNT = 6;
 
     // just means it did not change locations between requests, could be
     // velocity limit or obstruction etc.
@@ -161,25 +163,30 @@ public class ROVER_06 {
                 currentDirection = changeDirection(currentDirection);
                 blocked = false;
                 changeDirection = true;
-                changeCount = 0;
             } else if (changeDirection) {
-
+                System.out.println("### CHANGE COUNT: " + changeCount + " ###");
                 blocked = isNextBlock(currentDirection, scanMapTiles,
                         centerIndex);
                 if (!blocked) {
                     move(currentDirection);
-                    if (changeCount++ >= MAX_CHANGE_COUNT) {
+                    if (changeCount++ % MAX_CHANGE_COUNT == 0) {
                         changeDirection = false;
                         currentDirection = previousDirection;
                     }
                 }
             } else {
-
+                
+                System.out.println("### MOVE COUNT: " + moveCount + " ###");
                 blocked = isNextBlock(currentDirection, scanMapTiles,
                         centerIndex);
                 if (!blocked) {
                     move(currentDirection);
                 }
+//                if(moveCount++ % MAX_MOVE_COUNT == 0) {
+//                    changeDirection = true;
+//                    previousDirection = currentDirection;
+//                    currentDirection = changeDirection(currentDirection);
+//                }
             }
 
             // another call for current location
@@ -322,25 +329,25 @@ public class ROVER_06 {
         return null;
     }
 
-    public boolean isNextBlock(Direction currentDirection,
+    public boolean isNextBlock(Direction inputDirection,
             MapTile[][] scanMapTiles, int centerIndex) {
 
-        switch (currentDirection) {
+        switch (inputDirection) {
         case NORTH:
-            return isBlockTerrian(scanMapTiles[centerIndex][centerIndex - 1]);
+            return isBlock(scanMapTiles[centerIndex][centerIndex - 1]);
         case SOUTH:
-            return isBlockTerrian(scanMapTiles[centerIndex][centerIndex + 1]);
+            return isBlock(scanMapTiles[centerIndex][centerIndex + 1]);
         case WEST:
-            return isBlockTerrian(scanMapTiles[centerIndex - 1][centerIndex]);
+            return isBlock(scanMapTiles[centerIndex - 1][centerIndex]);
         case EAST:
-            return isBlockTerrian(scanMapTiles[centerIndex + 1][centerIndex]);
+            return isBlock(scanMapTiles[centerIndex + 1][centerIndex]);
         default:
             // this code should be unreachable
             return false;
         }
     }
 
-    private boolean isBlockTerrian(MapTile tile) {
+    private boolean isBlock(MapTile tile) {
         List<Terrain> blockers = Arrays.asList(Terrain.ROCK, Terrain.NONE,
                 Terrain.SAND);
         Terrain terrain = tile.getTerrain();
