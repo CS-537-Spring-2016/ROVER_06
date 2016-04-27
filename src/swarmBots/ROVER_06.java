@@ -1,6 +1,7 @@
 package swarmBots;
 
 import java.io.BufferedReader;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -154,34 +155,38 @@ public class ROVER_06 {
             int centerIndex = (scanMap.getEdgeSize() - 1) / 2;
             // tile S = y + 1; N = y - 1; E = x + 1; W = x - 1
 
-            // if the path the rover is heading to is block then check to see if
-            // the next path [east, west, north, south].
-            // is blocked. if it IS block, check the next path, and so on etc,
-            if (blocked) {
-                System.out.println("###Rover is blocked###");
-                previousDirection = currentDirection;
-                currentDirection = changeDirection(currentDirection);
-                blocked = false;
-                changeDirection = true;
-            } else if (changeDirection) {
-                System.out.println("### CHANGE COUNT: " + changeCount + " ###");
-                blocked = isNextBlock(currentDirection, scanMapTiles,
-                        centerIndex);
-                if (!blocked) {
-                    move(currentDirection);
-                    if (changeCount++ % MAX_CHANGE_COUNT == 0) {
-                        changeDirection = false;
-                        currentDirection = previousDirection;
-                    }
-                }
-            } else {
-                System.out.println("### MOVE COUNT: " + moveCount + " ###");
-                blocked = isNextBlock(currentDirection, scanMapTiles,
-                        centerIndex);
-                if (!blocked) {
-                    move(currentDirection);
-                }
-            }
+
+            // ***********************************************************
+          move(Direction.SOUTH);
+          if(Terrain.ROCK != null && Terrain.SAND !=null){
+        	  move(Direction.EAST);
+          }
+                    
+            
+          move(Direction.NORTH);
+          if(Terrain.ROCK != null && Terrain.SAND !=null){
+        	  move(Direction.WEST);
+        }
+            
+//          move(Direction.NORTH);
+//          if(Terrain.ROCK != null && Terrain.SAND !=null){
+//        	  move(Direction.WEST);
+//          }
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+           //
 
             // another call for current location
             out.println("LOC");
@@ -324,10 +329,10 @@ public class ROVER_06 {
     }
 
     /** determine if the rover is about to reach a "blocked" tile */
-    public boolean isNextBlock(Direction inputDirection,
-            MapTile[][] scanMapTiles, int centerIndex) {
+    public boolean isNextBlock(Direction direction, MapTile[][] scanMapTiles,
+            int centerIndex) {
 
-        switch (inputDirection) {
+        switch (direction) {
         case NORTH:
             return isBlocked(scanMapTiles[centerIndex][centerIndex - 1]);
         case SOUTH:
@@ -383,6 +388,69 @@ public class ROVER_06 {
             break;
         }
     }
+
+    /**
+     * recursively call itself until it find a direction that won't lead to a
+     * blocked path
+     */
+    private Direction findGoodDirection(Direction direction,
+            MapTile[][] scanMapTiles, int centerIndex) {
+
+        if (isNextBlock(direction, scanMapTiles, centerIndex)) {
+            return findGoodDirection(changeDirection(direction), scanMapTiles,
+                    centerIndex);
+        } else {
+            return direction;
+        }
+    }
+
+    /** the rover move logic */
+    private void masterMove(Direction direction, MapTile[][] scanMapTiles,
+            int centerIndex) {
+        if (isNextBlock(direction, scanMapTiles, centerIndex)) {
+            Direction goodDirection = findGoodDirection(direction, scanMapTiles,
+                    centerIndex);
+            if (isNextEdge(direction, scanMapTiles, centerIndex)) {
+                currentDirection = findGoodDirection(direction, scanMapTiles,
+                        centerIndex);
+                move(currentDirection);
+            } else {
+                move(goodDirection);
+            }
+
+        } else {
+            move(direction);
+        }
+    }
+
+    /**
+     * determine if the rover is about to reach a "NONE" tile. use to indicate
+     * that you've reach the edge of the map and may need to permantly change
+     * direction
+     */
+    private boolean isNextEdge(Direction direction, MapTile[][] scanMapTiles,
+            int centerIndex) {
+
+        switch (direction) {
+        case NORTH:
+            return isNone(scanMapTiles[centerIndex][centerIndex - 1]);
+        case SOUTH:
+            return isNone(scanMapTiles[centerIndex][centerIndex + 1]);
+        case WEST:
+            return isNone(scanMapTiles[centerIndex - 1][centerIndex]);
+        case EAST:
+            return isNone(scanMapTiles[centerIndex + 1][centerIndex]);
+        default:
+            // this code should be unreachable
+            return false;
+        }
+    }
+
+    /** determine if the tile is NONE */
+    private boolean isNone(MapTile tile) {
+        return tile.getTerrain() == Terrain.NONE;
+    }
+
     /**
      * Runs the client
      */
