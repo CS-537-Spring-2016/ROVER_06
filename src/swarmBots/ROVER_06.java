@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 
 import com.google.gson.Gson;
@@ -17,6 +18,7 @@ import common.Coord;
 import common.MapTile;
 import common.ScanMap;
 import enums.Direction;
+import enums.Science;
 import enums.Terrain;
 
 /**
@@ -36,12 +38,8 @@ public class ROVER_06 {
     static final int PORT_ADDRESS = 9537;
 
     Direction currentDirection = Direction.SOUTH;
-    Direction previousDirection;
-    boolean changeDirection = false;
-    final int MAX_CHANGE_COUNT = 3;
-    int changeCount = 0;
-    int moveCount = 0;
-    final int MAX_MOVE_COUNT = 6;
+    Coord cc = null;
+    HashSet<Coord> coords = new HashSet<Coord>();
 
     // just means it did not change locations between requests, could be
     // velocity limit or obstruction etc.
@@ -127,6 +125,8 @@ public class ROVER_06 {
             if (line.startsWith("LOC")) {
                 // loc = line.substring(4);
                 currentLoc = extractLOC(line);
+                cc = new Coord(Integer.valueOf(line.split(" ")[1]),
+                        Integer.valueOf(line.split(" ")[2]));
             }
             System.out.println("ROVER_06 currentLoc at start: " + currentLoc);
 
@@ -157,6 +157,8 @@ public class ROVER_06 {
             // ***************************************************
 
             masterMove(currentDirection, scanMapTiles, centerIndex);
+            for (Coord c : coords)
+                System.out.println(c.xpos + " " + c.ypos);
 
             // ***************************************************
 
@@ -379,6 +381,9 @@ public class ROVER_06 {
     /** the rover move logic */
     private void masterMove(Direction direction, MapTile[][] scanMapTiles,
             int centerIndex) {
+        System.out.println(
+                "********* " + cc.xpos + " " + cc.ypos + "*************");
+        detectRadioactive(scanMapTiles);
         if (isNextBlock(direction, scanMapTiles, centerIndex)) {
             Direction goodDirection = findGoodDirection(direction, scanMapTiles,
                     centerIndex);
@@ -415,6 +420,26 @@ public class ROVER_06 {
         default:
             // this code should be unreachable
             return false;
+        }
+    }
+
+    /**
+     * iterate through a scan map to find a tile with radiation. get the
+     * adjusted (absolute) coordinate of the tile and added into a hash set
+     */
+    private void detectRadioactive(MapTile[][] scanMapTiles) {
+        System.out.println("Current Location: " + cc.xpos + " " + cc.ypos);
+        for (int x = 0; x < scanMapTiles.length; x++) {
+            for (int y = 0; y < scanMapTiles[x].length; y++) {
+                MapTile mapTile = scanMapTiles[x][y];
+                if (mapTile.getScience() == Science.RADIOACTIVE) {
+                    int tileX = cc.xpos + (x - 5);
+                    int tileY = cc.ypos + (y - 5);
+                    System.out.println("Radioactive Location: [x:" + tileX
+                            + " y: " + tileY);
+                    coords.add(new Coord(tileX, tileY));
+                }
+            }
         }
     }
 
