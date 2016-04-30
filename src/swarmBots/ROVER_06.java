@@ -1,10 +1,12 @@
 package swarmBots;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -37,9 +39,12 @@ public class ROVER_06 {
     String SERVER_ADDRESS = "localhost";
     static final int PORT_ADDRESS = 9537;
 
-    Direction currentDirection = Direction.SOUTH;
+    Direction currentDirection = Direction.EAST;
     Coord cc = null;
-    HashSet<Coord> coords = new HashSet<Coord>();
+    HashSet<Coord> science_collection = new HashSet<Coord>();
+    HashSet<Coord> displayed_science = new HashSet<Coord>();
+    List<Link> blue = new ArrayList<Link>();
+    List<Socket> sockets = new ArrayList<Socket>();
 
     // just means it did not change locations between requests, could be
     // velocity limit or obstruction etc.
@@ -69,6 +74,45 @@ public class ROVER_06 {
 
     }
 
+    class RoverComm implements Runnable {
+
+        String ip;
+        int port;
+        Socket socket;
+
+        public RoverComm(String ip, int port) {
+            this.ip = ip;
+            this.port = port;
+        }
+
+        @Override
+        public void run() {
+            do {
+                try {
+                    socket = new Socket(ip, port);
+                } catch (UnknownHostException e) {
+                    System.out.println(e);
+                } catch (IOException e) {
+                    System.out.println(e);
+                }
+            } while (socket == null);
+            sockets.add(socket);
+            System.out
+                    .println(socket.getPort() + " " + socket.getInetAddress());
+        }
+
+    }
+
+    /**
+     * add all rover's ip and port number into a list so they can be connected
+     */
+    public void initConnection() {
+        // dummy value # 1
+        blue.add(new Link("Dummy Group #1", "localhost", 8000));
+        // dummy value # 2
+        blue.add(new Link("Dummy Group #2", "localhost", 9000));
+    }
+
     /**
      * Connects to the server then enters the processing loop.
      */
@@ -76,7 +120,6 @@ public class ROVER_06 {
 
         // Make connection and initialize streams
         Socket socket = new Socket(SERVER_ADDRESS, PORT_ADDRESS);
-
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         out = new PrintWriter(socket.getOutputStream(), true);
 
@@ -84,6 +127,13 @@ public class ROVER_06 {
 
         // Process all messages from server, wait until server requests Rover ID
         // name
+
+        // connect to all all the other rovers
+        initConnection();
+        for (Link link : blue) {
+            new Thread(new RoverComm(link.ip, link.port)).start();
+        }
+
         while (true) {
             String line = in.readLine();
             if (line.startsWith("SUBMITNAME")) {
@@ -157,8 +207,7 @@ public class ROVER_06 {
             // ***************************************************
 
             masterMove(currentDirection, scanMapTiles, centerIndex);
-            for (Coord c : coords)
-                System.out.println(c.xpos + " " + c.ypos);
+            shareScience();
 
             // ***************************************************
 
@@ -437,7 +486,7 @@ public class ROVER_06 {
                     int tileY = cc.ypos + (y - 5);
                     System.out.println("Radioactive Location: [x:" + tileX
                             + " y: " + tileY);
-                    coords.add(new Coord(tileX, tileY));
+                    science_collection.add(new Coord(tileX, tileY));
                 }
             }
         }
@@ -449,10 +498,36 @@ public class ROVER_06 {
     }
 
     /**
+     * write to each rover the coords of a tile that contains radiation. will
+     * only write to them if the coords haven't is new.
+     */
+    public void shareScience() {
+        for (Coord c : science_collection) {
+            if (!displayed_science.contains(c)) {
+                for (Socket s : sockets)
+                    try {
+                        new DataOutputStream(s.getOutputStream())
+                                .writeBytes(c.toString() + "\r\n");
+                    } catch (Exception e) {
+
+                    }
+                displayed_science.add(c);
+            }
+        }
+    }
+
+    /**
      * Runs the client
      */
+
     public static void main(String[] args) throws Exception {
-        ROVER_06 client = new ROVER_06();
-        client.run();
+        if (args.length == 0) {
+            System.out.println(1);
+            new ROVER_06().run();
+        } else {
+            System.out.println(2);
+            new ROVER_06(args[0]).run();
+        }
     }
+
 }
