@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -19,6 +20,7 @@ import com.google.gson.reflect.TypeToken;
 import common.Coord;
 import common.MapTile;
 import common.ScanMap;
+import common.ScienceCoord;
 import enums.Direction;
 import enums.Science;
 import enums.Terrain;
@@ -39,10 +41,10 @@ public class ROVER_06 {
     String SERVER_ADDRESS = "localhost";
     static final int PORT_ADDRESS = 9537;
 
-    Direction currentDirection = Direction.WEST;
+    Direction currentDirection = Direction.EAST;
     Coord cc = null;
-    HashSet<Coord> science_collection = new HashSet<Coord>();
-    HashSet<Coord> displayed_science = new HashSet<Coord>();
+    Set<ScienceCoord> science_collection = new HashSet<ScienceCoord>();
+    Set<ScienceCoord> displayed_science = new HashSet<ScienceCoord>();
     List<Link> blue = new ArrayList<Link>();
     List<Socket> sockets = new ArrayList<Socket>();
 
@@ -483,7 +485,7 @@ public class ROVER_06 {
                     int tileY = cc.ypos + (y - 5);
                     System.out.println("Radioactive Location: [x:" + tileX
                             + " y: " + tileY);
-                    science_collection.add(new Coord(tileX, tileY));
+                    science_collection.add(new ScienceCoord(mapTile.getTerrain(), mapTile.getScience(), tileX, tileY));
                 }
             }
         }
@@ -499,7 +501,7 @@ public class ROVER_06 {
      * only write to them if the coords haven't is new.
      */
     public void shareScience() {
-        for (Coord c : science_collection) {
+        for (ScienceCoord c : science_collection) {
             if (!displayed_science.contains(c)) {
                 for (Socket s : sockets)
                     try {
