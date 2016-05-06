@@ -10,7 +10,9 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
 
 import com.google.gson.Gson;
@@ -20,7 +22,6 @@ import com.google.gson.reflect.TypeToken;
 import common.Coord;
 import common.MapTile;
 import common.ScanMap;
-import common.ScienceCoord;
 import enums.Direction;
 import enums.Science;
 import enums.Terrain;
@@ -41,17 +42,21 @@ public class ROVER_06 {
     String SERVER_ADDRESS = "localhost";
     static final int PORT_ADDRESS = 9537;
 
-    Direction currentDirection = Direction.EAST;
-    Coord cc = null;
-    Set<ScienceCoord> science_collection = new HashSet<ScienceCoord>();
-    Set<ScienceCoord> displayed_science = new HashSet<ScienceCoord>();
+    Direction current = Direction.EAST;
+    Direction previous = null;
+    Direction going = Direction.EAST;
+
+    boolean shit = false;
+
+    Queue<Direction> paths = new LinkedList<Direction>();
+    Set<Coord> discoveredMap = new HashSet<Coord>();
+
+    Coord currentLoc;
+
+    Set<Coord> science_collection = new HashSet<Coord>();
+    Set<Coord> displayed_science = new HashSet<Coord>();
     List<Link> blue = new ArrayList<Link>();
     List<Socket> sockets = new ArrayList<Socket>();
-
-    // just means it did not change locations between requests, could be
-    // velocity limit or obstruction etc.
-    boolean stuck = false;
-    boolean blocked = false;
 
     public ROVER_06() {
         System.out.println("ROVER_06 rover object constructed");
@@ -73,7 +78,6 @@ public class ROVER_06 {
         // in milliseconds - smaller is faster, but the server
         // will cut connection if it is too small
         sleepTime = 200;
-
     }
 
     class RoverComm implements Runnable {
@@ -93,9 +97,9 @@ public class ROVER_06 {
                 try {
                     socket = new Socket(ip, port);
                 } catch (UnknownHostException e) {
-                    System.out.println(e);
+
                 } catch (IOException e) {
-                    System.out.println(e);
+
                 }
             } while (socket == null);
             sockets.add(socket);
@@ -125,11 +129,6 @@ public class ROVER_06 {
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         out = new PrintWriter(socket.getOutputStream(), true);
 
-        // Gson gson = new GsonBuilder().setPrettyPrinting().create();
-
-        // Process all messages from server, wait until server requests Rover ID
-        // name
-
         // connect to all all the other rovers
         initConnection();
         for (Link link : blue) {
@@ -157,89 +156,56 @@ public class ROVER_06 {
         cardinals[2] = "S";
         cardinals[3] = "W";
 
-        String currentDir = cardinals[0];
-        Coord currentLoc = null;
-        Coord previousLoc = null;
+        // **** get equipment listing ****
+        ArrayList<String> equipment = new ArrayList<String>();
+        equipment = getEquipment();
+        // System.out.println("ROVER_06 equipment list results drive " +
+        // equipment.get(0));
+        System.out
+                .println("ROVER_06 equipment list results " + equipment + "\n");
+
+        updateLoc();
 
         // start Rover controller process
         while (true) {
 
-            // currently the requirements allow sensor calls to be made with no
-            // simulated resource cost
-
             // **** location call ****
-            out.println("LOC");
-            line = in.readLine();
-            if (line == null) {
-                System.out.println("ROVER_06 check connection to server");
-                line = "";
-            }
-            if (line.startsWith("LOC")) {
-                // loc = line.substring(4);
-                currentLoc = extractLOC(line);
-                cc = new Coord(Integer.valueOf(line.split(" ")[1]),
-                        Integer.valueOf(line.split(" ")[2]));
-            }
-            System.out.println("ROVER_06 currentLoc at start: " + currentLoc);
-
-            // after getting location set previous equal current to be able to
-            // check for stuckness and blocked later
-            previousLoc = currentLoc;
-
-            // **** get equipment listing ****
-            ArrayList<String> equipment = new ArrayList<String>();
-            equipment = getEquipment();
-            // System.out.println("ROVER_06 equipment list results drive " +
-            // equipment.get(0));
-            System.out.println(
-                    "ROVER_06 equipment list results " + equipment + "\n");
+            updateLoc();
+            // ********************
 
             // ***** do a SCAN *****
             // System.out.println("ROVER_06 sending SCAN request");
             this.doScan();
             scanMap.debugPrintMap();
 
-            // ***** MOVING *****
-
             // pull the MapTile array out of the ScanMap object
+            // tile S = y + 1; N = y - 1; E = x + 1; W = x - 1
             MapTile[][] scanMapTiles = scanMap.getScanMap();
             int centerIndex = (scanMap.getEdgeSize() - 1) / 2;
-            // tile S = y + 1; N = y - 1; E = x + 1; W = x - 1
 
-            // ***************************************************
+            // add all newly discovred map to hash set
+            updateMap(scanMapTiles, centerIndex);
+            // ********************
 
-            masterMove(currentDirection, scanMapTiles, centerIndex);
+            // **** movement ***
+            if (paths.isEmpty()) {
+                System.out.println("IS EMPTY");
+                findPath(current, scanMapTiles, centerIndex);
+            } else {
+                System.out.println("ADJUSTING");
+                masterMove();
+            }
+            // ********************
+
+            // *** science ***
+            detectRadioactive(scanMapTiles);
             shareScience();
+            // ********************
 
-            // ***************************************************
-
-            // another call for current location
-            out.println("LOC");
-            line = in.readLine();
-            if (line == null) {
-                System.out.println("ROVER_06 check connection to server");
-                line = "";
-            }
-            if (line.startsWith("LOC")) {
-                currentLoc = extractLOC(line);
-            }
-
-            // System.out.println("ROVER_06 currentLoc after recheck: " +
-            // currentLoc);
-            // System.out.println("ROVER_06 previousLoc: " + previousLoc);
-
-            // test for stuckness
-            stuck = currentLoc.equals(previousLoc);
-
-            // System.out.println("ROVER_06 stuck test " + stuck);
-            System.out.println("ROVER_06 blocked test " + blocked);
-
-            // TODO - logic to calculate where to move next
-
+            // *** wait ***
             Thread.sleep(sleepTime);
+            // ********************
 
-            System.out.println(
-                    "ROVER_06 ------------ bottom process control --------------");
         }
 
     }
@@ -354,7 +320,7 @@ public class ROVER_06 {
     }
 
     /** determine if the rover is about to reach a "blocked" tile */
-    public boolean isNextBlock(Direction direction, MapTile[][] scanMapTiles,
+    private boolean isNextBlock(Direction direction, MapTile[][] scanMapTiles,
             int centerIndex) {
 
         switch (direction) {
@@ -429,24 +395,15 @@ public class ROVER_06 {
         }
     }
 
-    /** the rover move logic */
-    private void masterMove(Direction direction, MapTile[][] scanMapTiles,
-            int centerIndex) {
-        detectRadioactive(scanMapTiles);
-        if (isNextBlock(direction, scanMapTiles, centerIndex)) {
-            Direction goodDirection = findGoodDirection(direction, scanMapTiles,
-                    centerIndex);
-            if (isNextEdge(direction, scanMapTiles, centerIndex)) {
-                currentDirection = findGoodDirection(direction, scanMapTiles,
-                        centerIndex);
-                move(currentDirection);
-            } else {
-                move(goodDirection);
-            }
-
-        } else {
-            move(direction);
-        }
+    /**
+     * the rover move logic
+     * 
+     * @throws InterruptedException
+     * @throws IOException
+     */
+    private void masterMove() {
+        System.out.println("Moving: " + paths.peek());
+        move(paths.poll());
     }
 
     /**
@@ -481,14 +438,58 @@ public class ROVER_06 {
             for (int y = 0; y < scanMapTiles[x].length; y++) {
                 MapTile mapTile = scanMapTiles[x][y];
                 if (mapTile.getScience() == Science.RADIOACTIVE) {
-                    int tileX = cc.xpos + (x - 5);
-                    int tileY = cc.ypos + (y - 5);
-                    System.out.println("Radioactive Location: [x:" + tileX
-                            + " y: " + tileY);
-                    science_collection.add(new ScienceCoord(mapTile.getTerrain(), mapTile.getScience(), tileX, tileY));
+                    int tileX = currentLoc.xpos + (x - 5);
+                    int tileY = currentLoc.ypos + (y - 5);
+                    Coord coord = new Coord(mapTile.getTerrain(),
+                            mapTile.getScience(), tileX, tileY);
+                    System.out.println(
+                            "ROVER_06 science decteced - " + coord.toString());
+                    science_collection.add(new Coord(mapTile.getTerrain(),
+                            mapTile.getScience(), tileX, tileY));
                 }
             }
         }
+    }
+
+    private void findPath(Direction d, MapTile[][] mts, int c) {
+
+        switch (d) {
+        case NORTH:
+            break;
+        case EAST:
+            if (isValid(mts[c + 1][c])) {
+                paths.add(d);
+            } else {
+
+                if (isValid(mts[c][c - 1])) {
+                    paths.add(Direction.NORTH);
+                } else {
+                    
+                    if (isValid(mts[c-1][c-1])) {
+                        paths.add(Direction.WEST);
+                        paths.add(Direction.WEST);
+                        paths.add(Direction.NORTH);
+
+                    } else {
+                        System.out.println("NO");
+                    }
+                    
+
+                }
+            }
+
+            break;
+        case SOUTH:
+            break;
+        default:
+            break;
+        }
+    }
+
+    private boolean isValid(MapTile mt) {
+
+        return !mt.getHasRover() && mt.getTerrain() != Terrain.SAND
+                && mt.getTerrain() != Terrain.ROCK;
     }
 
     /** determine if the tile is NONE */
@@ -501,7 +502,7 @@ public class ROVER_06 {
      * only write to them if the coords haven't is new.
      */
     public void shareScience() {
-        for (ScienceCoord c : science_collection) {
+        for (Coord c : science_collection) {
             if (!displayed_science.contains(c)) {
                 for (Socket s : sockets)
                     try {
@@ -515,10 +516,42 @@ public class ROVER_06 {
         }
     }
 
+    private void updateLoc() throws IOException {
+
+        String temp;
+
+        out.println("LOC");
+        temp = in.readLine();
+        if (temp == null) {
+            System.out.println("ROVER_06 check connection to server");
+            temp = "";
+        }
+
+        if (temp.startsWith("LOC")) {
+            currentLoc = extractLOC(temp);
+        }
+
+        System.out.println("ROVER_06 currentLoc at start: " + currentLoc);
+    }
+
+    private void updateMap(MapTile[][] scanMapTiles, int centerIndex) {
+
+        for (int x = 0; x < scanMapTiles.length; x++) {
+
+            for (int y = 0; y < scanMapTiles[x].length; y++) {
+                MapTile mapTile = scanMapTiles[x][y];
+                int tileX = currentLoc.xpos + (x - 5);
+                int tileY = currentLoc.ypos + (y - 5);
+                Coord coord = new Coord(mapTile.getTerrain(),
+                        mapTile.getScience(), tileX, tileY);
+                discoveredMap.add(coord);
+            }
+        }
+    }
+
     /**
      * Runs the client
      */
-
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
             System.out.println(1);
