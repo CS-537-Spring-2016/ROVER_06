@@ -66,8 +66,7 @@ public class ROVER_06 {
         // this should be a safe but slow timer value
         // in milliseconds - smaller is faster, but the server
         // will cut connection if it is too small
-        sleepTime = 300;
-
+        sleepTime = 500;
     }
 
     public ROVER_06(String serverAddress) {
@@ -77,7 +76,7 @@ public class ROVER_06 {
 
         // in milliseconds - smaller is faster, but the server
         // will cut connection if it is too small
-        sleepTime = 200;
+        sleepTime = 500;
     }
 
     class RoverComm implements Runnable {
@@ -164,8 +163,6 @@ public class ROVER_06 {
         System.out
                 .println("ROVER_06 equipment list results " + equipment + "\n");
 
-        updateLoc();
-
         // start Rover controller process
         while (true) {
 
@@ -183,16 +180,14 @@ public class ROVER_06 {
             MapTile[][] scanMapTiles = scanMap.getScanMap();
             int centerIndex = (scanMap.getEdgeSize() - 1) / 2;
 
-            // add all newly discovred map to hash set
+            // add all newly discovered map to hash set
             updateMap(scanMapTiles, centerIndex);
             // ********************
 
             // **** movement ***
             if (paths.isEmpty()) {
-                System.out.println("IS EMPTY");
                 findPath(current, scanMapTiles, centerIndex);
             } else {
-                System.out.println("ADJUSTING");
                 masterMove();
             }
             // ********************
@@ -205,7 +200,14 @@ public class ROVER_06 {
             // *** wait ***
             Thread.sleep(sleepTime);
             // ********************
-
+            
+            // **** location call ****
+            updateLoc();
+            // *****
+            
+            // ****  Finish 1 move ***
+            System.out.println("-------------------------- END PANEL --------------------------------");
+            // ********************
         }
 
     }
@@ -401,7 +403,7 @@ public class ROVER_06 {
      * @throws InterruptedException
      * @throws IOException
      */
-    private void masterMove() {
+    private void masterMove() throws IOException, InterruptedException {
         System.out.println("Moving: " + paths.peek());
         move(paths.poll());
     }
@@ -462,17 +464,34 @@ public class ROVER_06 {
             } else {
 
                 if (isValid(mts[c][c - 1])) {
+                	System.out.println("CAN'T GO EAST, BUT NORTH IS SAFE");
+                    paths.add(Direction.NORTH);
                     paths.add(Direction.NORTH);
                 } else {
                     
-                    if (isValid(mts[c-1][c-1])) {
-                        paths.add(Direction.WEST);
-                        paths.add(Direction.WEST);
-                        paths.add(Direction.NORTH);
-
-                    } else {
-                        System.out.println("NO");
-                    }
+                   for (int x = c; x >= 0; x--) {
+                	   System.out.println("CANT GO EAST, READJUSTING...");
+                	   System.out.println("Currently x is: " + x);
+            		   MapTile mt = mts[x][c-1];
+            		   int tileX = currentLoc.xpos + (x - 5);
+                       int tileY = currentLoc.ypos + (c - 5 - 1);
+            		   System.out.println(mt.getTerrain() + " [x-c]: " + (x) + " [c-1]: " + (c-1));
+            		   System.out.println("X: " + tileX + " Y: " +  tileY);
+            		   
+            		   
+                	   if (isValid(mts[x][c-1])) {
+                		   
+                		   System.out.println("Added NORTH to PATH");
+                		   paths.add(Direction.NORTH);
+                		   break;
+                		   
+                	   } else {
+                		   
+                		   System.out.println("Added WEST TO PATH");
+                		   paths.add(Direction.WEST);
+                		   
+                	   }
+                   }
                     
 
                 }
