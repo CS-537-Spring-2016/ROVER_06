@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -43,7 +44,6 @@ public class ROVER_06 {
 	static final int PORT_ADDRESS = 9537;
 
 	Direction current = Direction.EAST;
-	boolean goAround = false;
 
 	Queue<Direction> paths = new LinkedList<Direction>();
 	Set<Coord> discoveredMap = new HashSet<Coord>();
@@ -58,6 +58,7 @@ public class ROVER_06 {
 	Direction previous = Direction.EAST;
 	boolean startCount = false;
 	int count = 0;
+	final int MAX_COUNT = 10;
 
 	public ROVER_06() {
 		System.out.println("ROVER_06 rover object constructed");
@@ -197,11 +198,10 @@ public class ROVER_06 {
 			if (paths.isEmpty()) {
 				findPath(current, scanMapTiles, centerIndex);
 			} else {
-
 				if (startCount) {
 					count++;
 
-					if (count >= 15) {
+					if (count >= MAX_COUNT) {
 						startCount = false;
 						count = 0;
 						current = previous;
@@ -510,25 +510,34 @@ public class ROVER_06 {
 
 			// go east if possible
 			if (isValid(mts[c + 1][c])) {
-				paths.add(d);
+				System.out.println("ADDED EAST  TO PATH");
+				paths.add(Direction.EAST);
 			} else {
 
 				// if what is blocking you is a "corners" of "NONE", try to go
 				// around it
 				if (isNone(mts[c + 1][c]) && isNone(mts[c][c - 1])) {
+
+					System.out.println("INSIDE A CORNER");
+					System.out.println("ADDED WEST TO PATH");
 					paths.add(Direction.WEST);
 
 					if (isValid(mts[c - 1][c - 1])) {
+						System.out.println("ADDED NORTH TO PATH");
 						paths.add(Direction.NORTH);
-					} else {
-						current = Direction.NORTH;
 					}
-				} else if (isNone(mts[c + 1][c])) {
-					current = Direction.NORTH;
-				}
-				// if you can't go east, try north
-				else if (isValid(mts[c][c - 1])) {
+
+				} else if (isValid(mts[c][c - 1])) {
+
+					// if you can't go east, try north
+					System.out.println("ADDED NORTH TO PATH");
 					paths.add(Direction.NORTH);
+
+				} else if (isNone(mts[c + 1][c]) && isValid(mts[c + 1][c - 1])) {
+					
+
+					current = Direction.NORTH;
+
 				} else {
 
 					// if you can't go EAST and NORTH: check if theres is a wall
@@ -541,7 +550,6 @@ public class ROVER_06 {
 
 						for (int x = c; x > 0; x--) {
 
-
 							if (isValid(mts[x][c - 1])) {
 
 								System.out.println("Added NORTH to PATH");
@@ -550,20 +558,21 @@ public class ROVER_06 {
 
 							} else {
 
-								System.out.println("Added WEST TO PATH");
-
 								if (isValid(mts[x - 1][c])) {
+
+									System.out.println("Added WEST TO PATH");
 									paths.add(Direction.WEST);
 
 									if (startCount) {
+										System.out.println("WORLD WORLD WORLD");
 										current = Direction.NORTH;
 									}
-
 
 								} else if (isValid(mts[x - 1][c + 1])) {
 									paths.add(Direction.SOUTH);
 									startCount = true;
-									previous = current;
+									previous = Direction.EAST;
+									System.out.println("HELLO HELLO HELLO");
 
 								}
 
