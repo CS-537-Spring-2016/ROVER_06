@@ -541,6 +541,7 @@ public class ROVER_06 {
 
 						for (int x = c; x > 0; x--) {
 
+
 							if (isValid(mts[x][c - 1])) {
 
 								System.out.println("Added NORTH to PATH");
@@ -558,10 +559,12 @@ public class ROVER_06 {
 										current = Direction.NORTH;
 									}
 
+
 								} else if (isValid(mts[x - 1][c + 1])) {
 									paths.add(Direction.SOUTH);
 									startCount = true;
 									previous = current;
+
 								}
 
 							}
