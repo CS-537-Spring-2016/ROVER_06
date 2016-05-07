@@ -58,7 +58,7 @@ public class ROVER_06 {
 	Direction previous = Direction.EAST;
 	boolean startCount = false;
 	int count = 0;
-	final int MAX_COUNT = 10;
+	final int MAX_COUNT = 20;
 
 	public ROVER_06() {
 		System.out.println("ROVER_06 rover object constructed");
@@ -519,7 +519,7 @@ public class ROVER_06 {
 				if (isNone(mts[c + 1][c]) && isNone(mts[c][c - 1])) {
 
 					System.out.println("INSIDE A CORNER");
-					System.out.println("ADDED WEST TO PATH");
+					System.out.println("ADDED WEST TO PATH #1");
 					paths.add(Direction.WEST);
 
 					if (isValid(mts[c - 1][c - 1])) {
@@ -560,22 +560,22 @@ public class ROVER_06 {
 
 								if (isValid(mts[x - 1][c])) {
 
-									System.out.println("Added WEST TO PATH");
+									System.out.println("Added WEST TO PATH #2");
 									paths.add(Direction.WEST);
 
-									if (startCount) {
-										System.out.println("WORLD WORLD WORLD");
-										current = Direction.NORTH;
-									}
-
 								} else if (isValid(mts[x - 1][c + 1])) {
+									System.out.println("ADDED SOUTH TO PATH");
+									System.out.println("HELLO HELLO HELLO");
 									paths.add(Direction.SOUTH);
 									startCount = true;
 									previous = Direction.EAST;
-									System.out.println("HELLO HELLO HELLO");
-
 								}
-
+								
+								if (startCount) {
+									System.out.println("WORLD WORLD WORLD");
+									current = Direction.NORTH;
+								}
+								
 							}
 						}
 					}
