@@ -43,10 +43,7 @@ public class ROVER_06 {
 	static final int PORT_ADDRESS = 9537;
 
 	Direction current = Direction.EAST;
-	Direction previous = null;
-	Direction going = Direction.EAST;
-
-	boolean shit = false;
+	boolean goAround = false;
 
 	Queue<Direction> paths = new LinkedList<Direction>();
 	Set<Coord> discoveredMap = new HashSet<Coord>();
@@ -209,10 +206,6 @@ public class ROVER_06 {
 			// *** wait ***
 			Thread.sleep(sleepTime);
 			// ********************
-
-			// **** location call ****
-			updateLoc();
-			// *****
 
 			// **** Finish 1 move ***
 			System.out.println("-------------------------- END PANEL --------------------------------");
@@ -445,8 +438,7 @@ public class ROVER_06 {
 					int tileX = currentLoc.xpos + (x - 5);
 					int tileY = currentLoc.ypos + (y - 5);
 					Coord coord = new Coord(mapTile.getTerrain(), mapTile.getScience(), tileX, tileY);
-					System.out.println("ROVER_06 science decteced - " + coord.toString());
-					science_collection.add(new Coord(mapTile.getTerrain(), mapTile.getScience(), tileX, tileY));
+					science_collection.add(coord);
 				}
 			}
 		}
@@ -456,7 +448,48 @@ public class ROVER_06 {
 
 		switch (d) {
 		case NORTH:
-			System.out.println("NORTH NOT IMPLEMENTED YET");
+			System.out.println("CURRENT: NORTH");
+			// go NORTH if there is nothing blocking you
+			if (isValid(mts[c][c - 1])) {
+				paths.add(Direction.NORTH);
+			} else {
+
+				// if you arrived to the edge of the map, then go WEST
+				if (isNone(mts[c][c - 1])) {
+					System.out.println("YOU HAVE REACH THE EDGE");
+					current = Direction.WEST;
+					findPath(current, mts, c);
+				}
+				// if there is something block your path, try to go WEST
+				// instead
+				else if (isValid(mts[c - 1][c])) {
+					System.out.println("CAN'T GO SOUTH, BUT WEST IS SAFE");
+					paths.add(Direction.WEST);
+				}
+				// if you can't go SOUTH, then try going EAST until you can go
+				// SOUTH.
+				else {
+
+					for (int x = c; x >= 0; x--) {
+						System.out.println("CANT GO WEST, READJUSTING...");
+						System.out.println("Currently x is: " + x);
+
+						if (isValid(mts[c - 1][x])) {
+
+							System.out.println("Added WEST to PATH");
+							paths.add(Direction.WEST);
+							break;
+
+						} else {
+
+							System.out.println("Added SOUTH TO PATH");
+							paths.add(Direction.SOUTH);
+
+						}
+					}
+				}
+
+			}
 			break;
 		case EAST:
 			System.out.println("CURRENT: EAST");
@@ -485,11 +518,14 @@ public class ROVER_06 {
 						current = Direction.WEST;
 						findPath(current, mts, c);
 					} else {
-
+						
+						goAround = false;
+						
 						for (int x = c; x >= 0; x--) {
 							System.out.println("CANT GO EAST, READJUSTING...");
 							System.out.println("Currently x is: " + x);
-
+							
+							
 							if (isValid(mts[x][c - 1])) {
 
 								System.out.println("Added NORTH to PATH");
@@ -502,8 +538,13 @@ public class ROVER_06 {
 								
 								if (isValid(mts[x-1][c])) {
 									paths.add(Direction.WEST);
+									
+									if (goAround) {
+										current = Direction.NORTH;
+									}
 								} else if (isValid(mts[x - 1][c + 1])) {
 									paths.add(Direction.SOUTH);
+									goAround = true;
 								}
 								
 
