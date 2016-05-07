@@ -43,10 +43,7 @@ public class ROVER_06 {
 	static final int PORT_ADDRESS = 9537;
 
 	Direction current = Direction.EAST;
-	Direction previous = null;
-	Direction going = Direction.EAST;
-
-	boolean shit = false;
+	boolean goAround = false;
 
 	Queue<Direction> paths = new LinkedList<Direction>();
 	Set<Coord> discoveredMap = new HashSet<Coord>();
@@ -57,6 +54,10 @@ public class ROVER_06 {
 	Set<Coord> displayed_science = new HashSet<Coord>();
 	List<Link> blue = new ArrayList<Link>();
 	List<Socket> sockets = new ArrayList<Socket>();
+
+	Direction previous = Direction.EAST;
+	boolean startCount = false;
+	int count = 0;
 
 	public ROVER_06() {
 		System.out.println("ROVER_06 rover object constructed");
@@ -196,7 +197,18 @@ public class ROVER_06 {
 			if (paths.isEmpty()) {
 				findPath(current, scanMapTiles, centerIndex);
 			} else {
+
+				if (startCount) {
+					count++;
+
+					if (count >= 15) {
+						startCount = false;
+						count = 0;
+						current = previous;
+					}
+				}
 				masterMove();
+
 			}
 			// ********************
 
@@ -209,10 +221,6 @@ public class ROVER_06 {
 			// *** wait ***
 			Thread.sleep(sleepTime);
 			// ********************
-
-			// **** location call ****
-			updateLoc();
-			// *****
 
 			// **** Finish 1 move ***
 			System.out.println("-------------------------- END PANEL --------------------------------");
@@ -445,8 +453,7 @@ public class ROVER_06 {
 					int tileX = currentLoc.xpos + (x - 5);
 					int tileY = currentLoc.ypos + (y - 5);
 					Coord coord = new Coord(mapTile.getTerrain(), mapTile.getScience(), tileX, tileY);
-					System.out.println("ROVER_06 science decteced - " + coord.toString());
-					science_collection.add(new Coord(mapTile.getTerrain(), mapTile.getScience(), tileX, tileY));
+					science_collection.add(coord);
 				}
 			}
 		}
@@ -456,39 +463,83 @@ public class ROVER_06 {
 
 		switch (d) {
 		case NORTH:
-			System.out.println("NORTH NOT IMPLEMENTED YET");
+			System.out.println("CURRENT: NORTH");
+			// go NORTH if there is nothing blocking you
+			if (isValid(mts[c][c - 1])) {
+				paths.add(Direction.NORTH);
+			} else {
+
+				// if you arrived to the edge of the map, change direction: WEST
+				if (isNone(mts[c][c - 1])) {
+					current = Direction.WEST;
+					findPath(current, mts, c);
+				}
+				// if there is something block your path, go west
+				else if (isValid(mts[c - 1][c])) {
+					System.out.println("ADDED WEST to PATH");
+					paths.add(Direction.WEST);
+				}
+				// if you can't go NORTH AND WEST, go SOUTH then WEST
+				else {
+
+					for (int x = c; x < mts.length; x++) {
+
+						if (isValid(mts[c - 1][x])) {
+
+							System.out.println("Added WEST to PATH");
+							paths.add(Direction.WEST);
+							break;
+
+						} else {
+
+							System.out.println("Added SOUTH TO PATH");
+
+							if (isValid(mts[c][c + 1])) {
+								paths.add(Direction.SOUTH);
+							} else {
+								current = Direction.SOUTH;
+							}
+
+						}
+					}
+				}
+			}
 			break;
 		case EAST:
 			System.out.println("CURRENT: EAST");
-			
+
 			// go east if possible
 			if (isValid(mts[c + 1][c])) {
 				paths.add(d);
 			} else {
-				
-				// if what is blocking you is a "corners" of none, try to go around it
-				if (isNone(mts[c + 1][c]) && isNone(mts[c][c-1])) {
+
+				// if what is blocking you is a "corners" of "NONE", try to go
+				// around it
+				if (isNone(mts[c + 1][c]) && isNone(mts[c][c - 1])) {
 					paths.add(Direction.WEST);
-					
+
 					if (isValid(mts[c - 1][c - 1])) {
 						paths.add(Direction.NORTH);
-						current = Direction.EAST;
+					} else {
+						current = Direction.NORTH;
 					}
-				} 
-				// if you can't go east, make one more to go north
+				} else if (isNone(mts[c + 1][c])) {
+					current = Direction.NORTH;
+				}
+				// if you can't go east, try north
 				else if (isValid(mts[c][c - 1])) {
-					System.out.println("CAN'T GO EAST, BUT NORTH IS SAFE");
 					paths.add(Direction.NORTH);
 				} else {
 
+					// if you can't go EAST and NORTH: check if theres is a wall
+					// above
+					// you probably reach the edge, try going west now
 					if (isNone(mts[c][c - 1])) {
 						current = Direction.WEST;
 						findPath(current, mts, c);
 					} else {
 
-						for (int x = c; x >= 0; x--) {
-							System.out.println("CANT GO EAST, READJUSTING...");
-							System.out.println("Currently x is: " + x);
+						for (int x = c; x > 0; x--) {
 
 							if (isValid(mts[x][c - 1])) {
 
@@ -499,13 +550,19 @@ public class ROVER_06 {
 							} else {
 
 								System.out.println("Added WEST TO PATH");
-								
-								if (isValid(mts[x-1][c])) {
+
+								if (isValid(mts[x - 1][c])) {
 									paths.add(Direction.WEST);
+
+									if (startCount) {
+										current = Direction.NORTH;
+									}
+
 								} else if (isValid(mts[x - 1][c + 1])) {
 									paths.add(Direction.SOUTH);
+									startCount = true;
+									previous = current;
 								}
-								
 
 							}
 						}
@@ -538,7 +595,7 @@ public class ROVER_06 {
 				// SOUTH.
 				else {
 
-					for (int x = c; x >= 0; x--) {
+					for (int x = c; x > 0; x--) {
 						System.out.println("CANT GO EAST, READJUSTING...");
 						System.out.println("Currently x is: " + x);
 
