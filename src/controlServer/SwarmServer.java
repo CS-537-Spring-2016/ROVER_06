@@ -51,6 +51,7 @@ public class SwarmServer {
     
     private static SwarmMapInit mapInit = new SwarmMapInit();
     private static String mapFileName = "MapDefault.txt";
+    //private static String mapFileName = "convertedPaintMapToTextMap.txt";
 
     private static int mapWidth = 0;
     private static int mapHeight = 0;
