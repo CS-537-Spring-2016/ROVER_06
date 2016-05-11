@@ -6,12 +6,12 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class BlueRover {
+public class ROVER_DUMMY {
 
     public static void main(String[] args) {
 
         try {
-            ServerSocket serverSocket = new ServerSocket(8000);
+            ServerSocket serverSocket = new ServerSocket(53799);
             System.out.println("BLUE waiting...");
 
             Socket socket = serverSocket.accept();
@@ -24,7 +24,6 @@ public class BlueRover {
             }
 
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
