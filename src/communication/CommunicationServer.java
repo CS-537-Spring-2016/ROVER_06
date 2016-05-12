@@ -6,10 +6,13 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
+import common.RoverQueue;
+
 public class CommunicationServer implements Runnable {
 
     public List<DataOutputStream> outputStreamList;
     public List<Group> groupList = new ArrayList<Group>();
+    private RoverQueue roverQueue;
 
     public CommunicationServer(List<Group> groupList) {
         this.groupList = groupList;
@@ -48,6 +51,10 @@ public class CommunicationServer implements Runnable {
             }
         }
 
+    }
+
+    public RoverQueue getQueue() {
+        return roverQueue;
     }
 
 }
