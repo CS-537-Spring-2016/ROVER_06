@@ -112,4 +112,19 @@ public class Tracker {
         return location.xpos == targetLocation.xpos
                 && location.ypos == targetLocation.ypos;
     }
+
+    /** set Tracker's startinging point and destination. calculate the distance
+     * to destination */
+    public void initDestination(Coord destination) {
+
+        startingPoint = currentLocation;
+        this.destination = destination;
+        setDistanceTracker();
+
+        System.out.println("********** SUMMARY **********");
+        System.out.println("CURRENT LOCATION: " + currentLocation);
+        System.out.println("STARTING POINT: " + startingPoint);
+        System.out.println("DESTINATION: " + this.destination);
+        System.out.println("******************************");
+    }
 }

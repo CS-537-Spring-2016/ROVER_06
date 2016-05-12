@@ -20,7 +20,6 @@ import common.State;
 import common.Tracker;
 import communication.CommunicationServer;
 import communication.Group;
-import enums.Direction;
 import enums.Terrain;
 
 /** The seed that this program is built on is a chat program example found here:
@@ -33,31 +32,30 @@ public class ROVER_06 {
     PrintWriter out;
     String rovername;
     ScanMap scanMap;
-    int sleepTime;
     String SERVER_ADDRESS;
     static final int PORT_ADDRESS = 9537;
+
+    /* swarmserver constants */
+    final String CURRENT_LOC = "LOC";
+    final String TARGET_LOC = "TARGET_LOC";
+    final int SLEEP_TIME = 500;
 
     CommunicationServer communicationServer;
     Set<Coord> discoveredScience = new HashSet<Coord>();
 
-    Coord currentLoc;
-    Coord targetLoc;
-
-    // group 3
+    /* movement */
     Tracker roverTracker;
 
     public ROVER_06(String serverAddress) {
         System.out.println("ROVER_06 rover object constructed");
         rovername = "ROVER_06";
         SERVER_ADDRESS = serverAddress;
+
+        // keep track of rover current and target location
         roverTracker = new Tracker();
 
         // server with all the ROVER INFO from blue corp
         communicationServer = new CommunicationServer(Group.BLUE_CORP());
-
-        // in milliseconds - smaller is faster, but the server
-        // will cut connection if it is too small
-        sleepTime = 500;
     }
 
     /** Connects to the server then enters the processing loop. */
@@ -72,54 +70,52 @@ public class ROVER_06 {
          * rovers on a seperate thread. */
         new Thread(communicationServer).start();
 
+        // This sets the name of this instance of a swarmBot for
+        // identifying thread to the server
         while (true) {
             String line = in.readLine();
             if (line.startsWith("SUBMITNAME")) {
-
-                // This sets the name of this instance of a swarmBot for
-                // identifying thread to the server
                 out.println(rovername);
                 break;
             }
         }
 
-        // ******** Rover logic *********
-        // int cnt=0;
-        String line = "";
-
         // **** get equipment listing ****
-        ArrayList<String> equipment = new ArrayList<String>();
-        equipment = getEquipment();
-        // System.out.println("ROVER_06 equipment list results drive " +
-        // equipment.get(0));
-        System.out
-                .println("ROVER_06 equipment list results " + equipment + "\n");
+        System.out.println(
+                "ROVER_06 equipment list results " + getEquipment() + "\n");
 
-        // target_location request
-        out.println("TARGET_LOC");
-        Coord target = extractLOC(in.readLine());
-        roverTracker.setTargetLocation(target);
-        getLocation();
-        startMission(target);
+        /* request current and target location */
+        roverTracker.setCurrentLocation(requestToSwarmServer(CURRENT_LOC));
+        roverTracker.setTargetLocation(requestToSwarmServer(TARGET_LOC));
 
-        /* Puts all the tiles in the target location in the job queue */
-        if (roverTracker.atTargetLocation(roverTracker.getCurrentLocation())) {
-            for (int x = -3; x < 4; x++)
-                for (int y = -3; y < 4; y++)
-                    if (!blocked(x, y))
-                        communicationServer.getQueue().addLocation(new Coord(
-                                x + roverTracker.getCurrentLocation().xpos,
-                                y + roverTracker.getCurrentLocation().ypos));
-        }
+        /* move the rover towards its destination */
+        doScan();
+        startMission(roverTracker.getTargetLocation());
+
+        //
+        // System.out.println("DONE!!!!!");
+        // /* Puts all the tiles in the target location in the job queue */
+        // if (roverTracker.atTargetLocation(roverTracker.getCurrentLocation()))
+        // {
+        // for (int x = -5; x < 6; x++) {
+        // for (int y = -5; y < 6; y++) {
+        // if (!blocked(x, y)) {
+        // communicationServer.getQueue().addLocation(new Coord(
+        // x + roverTracker.getCurrentLocation().xpos,
+        // y + roverTracker.getCurrentLocation().ypos));
+        // }
+        // }
+        // }
+        // }
 
         // Start Rover controller process
-//        while (true)
-//            if (!communicationServer.getQueue().isEmpty()) {
-//                getLocation();
-//                startMission(
-//                        communicationServer.getQueue().closestTargetLocation(
-//                                roverTracker.getCurrentLocation()));
-//            }
+        // while (true)
+        // if (!communicationServer.getQueue().isEmpty()) {
+        // getLocation();
+        // startMission(
+        // communicationServer.getQueue().closestTargetLocation(
+        // roverTracker.getCurrentLocation()));
+        // }
 
         // // start Rover controller process
         // while (true) {
@@ -164,10 +160,10 @@ public class ROVER_06 {
 
     // ################ Support Methods ###########################
 
+    /** clear in.readLine() */
     private void clearReadLineBuffer() throws IOException {
         while (in.ready()) {
-            // System.out.println("ROVER_06 clearing readLine()");
-            String garbage = in.readLine();
+            in.readLine();
         }
     }
 
@@ -285,79 +281,36 @@ public class ROVER_06 {
     // }
     // }
 
-    private void findPath(Direction d, MapTile[][] mts, int c) {
-
-    }
-
-    private boolean isValid(MapTile mt) {
-
-        return !mt.getHasRover() && mt.getTerrain() != Terrain.SAND
-                && mt.getTerrain() != Terrain.ROCK
-                && mt.getTerrain() != Terrain.NONE;
-    }
-
-    /** determine if the tile is NONE */
-    private boolean isNone(MapTile tile) {
-        return tile.getTerrain() == Terrain.NONE;
-    }
-
-    /** get the rover's curren't location on the */
-    private Coord getCurrentLoc() throws IOException {
-
-        String temp;
-        Coord coord = null;
-
-        out.println("LOC");
-        temp = in.readLine();
-        if (temp == null) {
-            System.out.println("ROVER_06 check connection to server");
-            temp = "";
-        } else if (temp.startsWith("LOC")) {
-            coord = extractLOC(temp);
-        }
-
-        System.out.println("ROVER_06 currentLoc at start: [X:" + coord.xpos
-                + ", Y:" + coord.ypos + "]");
-
-        return coord;
-    }
-
     private void startMission(Coord destination)
             throws IOException, InterruptedException {
-        System.out.println(
-                "\nCURRENT LOCATION: " + roverTracker.getCurrentLocation());
-        roverTracker.setStartingPoint(roverTracker.getCurrentLocation());
-        System.out
-                .println("STARTING POINT: " + roverTracker.getStartingPoint());
-        roverTracker.setDestination(destination);
-        System.out.println("DESTINATION: " + destination);
-        roverTracker.setDistanceTracker();
-        System.out.println("DISTANCE: " + roverTracker.getDistanceTracker());
 
-        String direction = null;
+        roverTracker.initDestination(destination);
 
         while (!roverTracker.hasArrived()) {
-            direction = resolveDirection();
-            if (direction.equals("E")) {
+            
+            switch (resolveDirection()) {
+            case "E":
                 System.out.println("HEADED EAST");
                 accelerate(1, 0);
-            }
-            if (direction.equals("W")) {
+                break;
+            case "W":
                 System.out.println("HEADED WEST");
                 accelerate(-1, 0);
-            }
-            if (direction.equals("S")) {
+                break;
+            case "S":
                 System.out.println("HEADED SOUTH");
                 accelerate(0, 1);
-            }
-            if (direction.equals("N")) {
+                break;
+            case "N":
                 System.out.println("HEADED NORTH");
                 accelerate(0, -1);
+                break;
             }
         }
     }
 
-    /* This method is used to decide what direction the rover will go next */
+    /** This method is used to decide what direction the rover will go next
+     * Prioirty: EAST, WEST, SOUTH, NORTH */
     private String resolveDirection() {
         if (roverTracker.getDistanceTracker().xpos > 0)
             return "E";
@@ -472,7 +425,7 @@ public class ROVER_06 {
                     "Distance Left = " + roverTracker.getDistanceTracker().xpos
                             + "," + roverTracker.getDistanceTracker().ypos);
         }
-        Thread.sleep(sleepTime);
+        Thread.sleep(SLEEP_TIME);
     }
 
     private boolean blocked(int xOffset, int yOffset) {
@@ -513,6 +466,15 @@ public class ROVER_06 {
             this.doScan();
             // scanMap.debugPrintMap();
         }
+    }
+
+    private Coord requestToSwarmServer(String request) throws IOException {
+        String response;
+        do {
+            out.println(request);
+            response = in.readLine();
+        } while (!response.startsWith(request));
+        return extractLOC(response);
     }
 
     /** Runs the client */
