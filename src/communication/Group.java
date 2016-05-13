@@ -15,6 +15,10 @@ public class Group {
         this.port = port;
     }
 
+    public String toString() {
+        return name + " " + ip + " " + port;
+    }
+
     public static List<Group> BLUE_CORP() {
         List<Group> blueCorp = new ArrayList<Group>();
         // dummy value # 1

@@ -10,8 +10,13 @@ import common.RoverQueue;
 
 public class CommunicationServer implements Runnable {
 
+    /* after connected to a ROVER, create and save that ROVER output stream so
+     * they can be contact later */
     public List<DataOutputStream> outputStreamList;
-    public List<Group> groupList = new ArrayList<Group>();
+
+    /* A list of all the GROUP/ROVER's information (Group's Name, ROVER's IP,
+     * ROVER's Port */
+    public List<Group> groupList;
     private RoverQueue roverQueue;
 
     public CommunicationServer(List<Group> groupList) {
@@ -20,28 +25,38 @@ public class CommunicationServer implements Runnable {
     }
 
     @Override
+    /** Connect to each ROVER's socket but after X attempts, will stop trying */
     public void run() {
         for (Group g : groupList) {
+            /* start a new thread  for each group and try to connect to each GROUP's socket.
+             * keep trying until a socket has created or if fail attempts exceed
+             * max */
             new Thread(() -> {
 
                 Socket socket = null;
+                int createSocketAttempts = 0;
+                final int MAX_CREATE_SOCKET_ATTEMPTS = 10;
+                final int TIME_WAIT_TILL_NEXT_ATTEMPT = 1000;
 
                 do {
                     try {
                         socket = new Socket(g.ip, g.port);
-                        outputStreamList.add(
-                                new DataOutputStream(socket.getOutputStream()));
+                        System.out.println("CONNECTED to: " + g.toString());
+                        outputStreamList.add(new DataOutputStream(socket.getOutputStream()));
                     } catch (Exception e) {
+                        try {
+                            Thread.sleep(TIME_WAIT_TILL_NEXT_ATTEMPT);
+                        } catch (Exception e1) {
+                        }
+                        createSocketAttempts++;
                     }
-
-                } while (socket == null);
-
+                } while (socket == null && createSocketAttempts < MAX_CREATE_SOCKET_ATTEMPTS);
             }).start();
         }
-
     }
 
-    public void shareScience(String string) {
+    /** Write a message to all the connected ROVERS */
+    public void writeToRovers(String string) {
 
         for (DataOutputStream dos : outputStreamList) {
             try {

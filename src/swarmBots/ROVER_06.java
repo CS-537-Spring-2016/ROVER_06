@@ -214,7 +214,7 @@ public class ROVER_06 {
 
                     if (!discoveredScience.contains(coord)) {
                         discoveredScience.add(coord);
-                        communicationServer.shareScience(coord.toProtocol());
+                        communicationServer.writeToRovers(coord.toProtocol());
                     }
                 }
             }
