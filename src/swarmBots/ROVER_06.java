@@ -105,7 +105,7 @@ public class ROVER_06 {
         /* Test */
         startMission(targetCoord);
         startMission(startCoord);
-        while(true) {
+        while (true) {
             startMission(generateRandomCoord());
         }
 
@@ -281,10 +281,10 @@ public class ROVER_06 {
             detectRadioactive(roverTracker, scanMap.getScanMap());
             displayDiscoveredScience();
 
-            if (isInDestinationRange(roverTracker.getDistanceTracker())) {
-                System.out.println("IN RANGE");
-            }
-            if (isInDestinationRange(roverTracker.getDistanceTracker()) && isDestinationBlocked()) {
+            Coord destination = roverTracker.getDestination();
+            Coord current = roverTracker.getCurrentLocation();
+
+            if (isInDestinationRange(roverTracker.getDistanceTracker()) && isDestinationBlocked(current, destination)) {
                 System.out.println("Destination is blocked!");
 
                 roverTracker.setArrived(true);
@@ -303,13 +303,15 @@ public class ROVER_06 {
         }
     }
 
+    /** display a list of all the discovered science. list will follow the
+     * protocol: TERRAIN SCIENCE X Y */
     private void displayDiscoveredScience() {
         StringBuilder science = new StringBuilder("DISCOVERED SCIENCE: [");
         for (Coord c : discoveredScience) {
             science.append(c.toProtocol() + " ");
         }
         science.append("]");
-        System.out.println(science);
+        System.out.println(science.toString());
     }
 
     private void goAround(String direction) throws InterruptedException, IOException {
@@ -407,6 +409,9 @@ public class ROVER_06 {
                 || map[roverX + xOffset][roverY + yOffset].getTerrain() == Terrain.SAND;
     }
 
+    /** @param mapTile
+     * @return true if the tile is "blocked" or not pass-able: SAND, ROCK, NONE,
+     *         or has a ROVER */
     private boolean blocked(MapTile mapTile) {
         return mapTile.getHasRover() || mapTile.getTerrain() == Terrain.SAND || mapTile.getTerrain() == Terrain.ROCK
                 || mapTile.getTerrain() == Terrain.NONE;
@@ -427,31 +432,25 @@ public class ROVER_06 {
             this.doScan();
             scanMap.debugPrintMap();
         }
-        ;
     }
 
-    private boolean isDestinationBlocked() {
+    /** @param current
+     *            ROVER's current location
+     * @param destination
+     *            ROVER's destination location
+     * @return true if the destination location is blocked, i.e. (location is on
+     *         a SAND, ROCK, NONE) tile */
+    private boolean isDestinationBlocked(Coord current, Coord destination) {
 
         MapTile[][] map = scanMap.getScanMap();
 
-        int xCurrent = roverTracker.getCurrentLocation().xpos;
-        int yCurrent = roverTracker.getCurrentLocation().ypos;
-
-        int xDestination = roverTracker.getDestination().xpos;
-        int yDestination = roverTracker.getDestination().ypos;
-
-        int xTemp;
-        int yTemp;
-
         for (int x = -5; x < 6; x++) {
             for (int y = -5; y < 6; y++) {
-                if (blocked(map[x + 5][y + 5])) {
-                    xTemp = xCurrent + x;
-                    yTemp = yCurrent + y;
+                int xAdjusted = current.xpos + x;
+                int yAdjusted = current.ypos + y;
 
-                    if (xTemp == xDestination && yTemp == yDestination) {
-                        return true;
-                    }
+                if (blocked(map[x + 5][y + 5]) && xAdjusted == destination.xpos && yAdjusted == destination.ypos) {
+                    return true;
                 }
             }
         }
