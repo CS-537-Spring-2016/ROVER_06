@@ -12,10 +12,10 @@ public class ROVER_DUMMY {
 
         try {
             ServerSocket serverSocket = new ServerSocket(53799);
-            System.out.println("BLUE waiting...");
+            System.out.println("ROVER_DUMMY waiting...");
 
             Socket socket = serverSocket.accept();
-            System.out.println("BLUE someone has connected");
+            System.out.println("ROVER_DUMMY someone has connected");
 
             while (true) {
                 BufferedReader br = new BufferedReader(
