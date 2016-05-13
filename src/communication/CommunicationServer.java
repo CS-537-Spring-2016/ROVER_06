@@ -60,7 +60,8 @@ public class CommunicationServer implements Runnable {
 
         for (DataOutputStream dos : outputStreamList) {
             try {
-                dos.writeBytes(string + "\r\n");
+                dos.writeBytes(string + "\n");
+                dos.flush();
             } catch (IOException e) {
                 e.printStackTrace();
             }
