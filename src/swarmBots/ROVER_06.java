@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
 
 import com.google.gson.Gson;
@@ -36,10 +37,11 @@ public class ROVER_06 {
     String SERVER_ADDRESS;
     static final int PORT_ADDRESS = 9537;
 
-    /* swarmserver constants */
+    /* swarm server constants */
     final String CURRENT_LOC = "LOC";
     final String TARGET_LOC = "TARGET_LOC";
     final int SLEEP_TIME = 500;
+    final int CENTER_INDEX = 5;
 
     CommunicationServer communicationServer;
     Set<Coord> discoveredScience = new HashSet<Coord>();
@@ -48,6 +50,8 @@ public class ROVER_06 {
     Tracker roverTracker;
     private Coord startCoord;
     private Coord targetCoord;
+
+    boolean beginNewMission = false;
 
     public ROVER_06(String serverAddress) {
         System.out.println("ROVER_06 rover object constructed");
@@ -70,7 +74,7 @@ public class ROVER_06 {
         out = new PrintWriter(socket.getOutputStream(), true);
 
         /* starts the communication server. will try to connect to all the other
-         * rovers on a seperate thread. */
+         * ROVERS on a separate thread. */
         new Thread(communicationServer).start();
 
         // This sets the name of this instance of a swarmBot for
@@ -84,18 +88,27 @@ public class ROVER_06 {
         }
 
         // **** get equipment listing ****
-        System.out.println(
-                "ROVER_06 equipment list results " + getEquipment() + "\n");
+        System.out.println("ROVER_06 equipment list results " + getEquipment() + "\n");
 
         /* request current and target location */
-        startCoord = requestToSwarmServer(CURRENT_LOC);
-        targetCoord = requestToSwarmServer(TARGET_LOC);
+        startCoord = requestCoordFromServer(CURRENT_LOC);
+        targetCoord = requestCoordFromServer(TARGET_LOC);
+
+        /* initialize current location */
+        roverTracker.setCurrentLocation(startCoord);
 
         /* move the rover towards its destination */
         doScan();
+        // startMission(startCoord);
+        // startMission(targetCoord);
 
-        startMission(startCoord);
+        /* Test */
         startMission(targetCoord);
+        startMission(startCoord);
+        while(true) {
+            startMission(generateRandomCoord());
+        }
+
     }
 
     // ################ Support Methods ###########################
@@ -141,9 +154,8 @@ public class ROVER_06 {
 
         String jsonEqListString = jsonEqList.toString();
         ArrayList<String> returnList;
-        returnList = gson.fromJson(jsonEqListString,
-                new TypeToken<ArrayList<String>>() {
-                }.getType());
+        returnList = gson.fromJson(jsonEqListString, new TypeToken<ArrayList<String>>() {
+        }.getType());
         // System.out.println("ROVER_06 returnList " + returnList);
 
         return returnList;
@@ -163,8 +175,7 @@ public class ROVER_06 {
             jsonScanMapIn = "";
         }
         StringBuilder jsonScanMap = new StringBuilder();
-        System.out.println("ROVER_06 incomming SCAN result - first readline: "
-                + jsonScanMapIn);
+        System.out.println("ROVER_06 incomming SCAN result - first readline: " + jsonScanMapIn);
 
         if (jsonScanMapIn.startsWith("SCAN")) {
             while (!(jsonScanMapIn = in.readLine()).equals("SCAN_END")) {
@@ -196,8 +207,7 @@ public class ROVER_06 {
     // returns a Coord object
     public static Coord extractLOC(String sStr) {
         String[] coordinates = sStr.split(" ");
-        return new Coord(Integer.parseInt(coordinates[1].trim()),
-                Integer.parseInt(coordinates[2].trim()));
+        return new Coord(Integer.parseInt(coordinates[1]), Integer.parseInt(coordinates[2]));
     }
 
     /** iterate through a scan map to find a tile with radiation. get the
@@ -209,8 +219,7 @@ public class ROVER_06 {
                 if (mapTile.getScience() == Science.RADIOACTIVE) {
                     int tileX = tracker.getCurrentLocation().xpos + (x - 5);
                     int tileY = tracker.getCurrentLocation().ypos + (y - 5);
-                    Coord coord = new Coord(mapTile.getTerrain(),
-                            mapTile.getScience(), tileX, tileY);
+                    Coord coord = new Coord(mapTile.getTerrain(), mapTile.getScience(), tileX, tileY);
 
                     if (!discoveredScience.contains(coord)) {
                         discoveredScience.add(coord);
@@ -221,8 +230,7 @@ public class ROVER_06 {
         }
     }
 
-    private void startMission(Coord destination)
-            throws IOException, InterruptedException {
+    private void startMission(Coord destination) throws IOException, InterruptedException {
 
         roverTracker.initDestination(destination);
 
@@ -250,7 +258,7 @@ public class ROVER_06 {
     }
 
     /** This method is used to decide what direction the rover will go next
-     * Prioirty: EAST, WEST, SOUTH, NORTH */
+     * Priority: EAST, WEST, SOUTH, NORTH */
     private String resolveDirection() {
         if (roverTracker.getDistanceTracker().xpos > 0)
             return "E";
@@ -263,27 +271,32 @@ public class ROVER_06 {
         return null;
     }
 
-    private void accelerate(int xVelocity, int yVelocity)
-            throws IOException, InterruptedException {
+    private void accelerate(int xVelocity, int yVelocity) throws IOException, InterruptedException {
 
         String direction = (xVelocity == 1) ? "E"
-                : (xVelocity == -1) ? "W"
-                        : (yVelocity == 1) ? "S"
-                                : (yVelocity == -1) ? "N" : null;
+                : (xVelocity == -1) ? "W" : (yVelocity == 1) ? "S" : (yVelocity == -1) ? "N" : null;
         while ((xVelocity != 0) ? roverTracker.getDistanceTracker().xpos != 0
                 : roverTracker.getDistanceTracker().ypos != 0) {
-            
+
             detectRadioactive(roverTracker, scanMap.getScanMap());
             displayDiscoveredScience();
+
+            if (isInDestinationRange(roverTracker.getDistanceTracker())) {
+                System.out.println("IN RANGE");
+            }
+            if (isInDestinationRange(roverTracker.getDistanceTracker()) && isDestinationBlocked()) {
+                System.out.println("Destination is blocked!");
+
+                roverTracker.setArrived(true);
+                return;
+            }
 
             if (!blocked(xVelocity, yVelocity)) {
                 move(direction);
             } else {
-                roverTracker.addMarker(new State(new Coord(
-                        roverTracker.getCurrentLocation().xpos + xVelocity,
+                roverTracker.addMarker(new State(new Coord(roverTracker.getCurrentLocation().xpos + xVelocity,
                         roverTracker.getCurrentLocation().ypos + yVelocity)));
-                roverTracker.setLastSuccessfulMove(
-                        roverTracker.getCurrentLocation());
+                roverTracker.setLastSuccessfulMove(roverTracker.getCurrentLocation());
                 goAround(direction);
             }
             getLocation();
@@ -299,52 +312,44 @@ public class ROVER_06 {
         System.out.println(science);
     }
 
-    private void goAround(String direction)
-            throws InterruptedException, IOException {
+    private void goAround(String direction) throws InterruptedException, IOException {
 
         String previousDirection = "";
         String direction1 = previousDirection;
-        while ((roverTracker.getCurrentLocation().ypos > roverTracker
-                .peekMarker().getY() && direction.equals("N"))
-                || (roverTracker.getCurrentLocation().xpos > roverTracker
-                        .peekMarker().getX() && direction.equals("W"))
-                || (roverTracker.getCurrentLocation().ypos < roverTracker
-                        .peekMarker().getY() && direction.equals("S"))
-                || (roverTracker.getCurrentLocation().xpos < roverTracker
-                        .peekMarker().getX() && direction.equals("E"))) {
+        while ((roverTracker.getCurrentLocation().ypos > roverTracker.peekMarker().getY() && direction.equals("N"))
+                || (roverTracker.getCurrentLocation().xpos > roverTracker.peekMarker().getX() && direction.equals("W"))
+                || (roverTracker.getCurrentLocation().ypos < roverTracker.peekMarker().getY() && direction.equals("S"))
+                || (roverTracker.getCurrentLocation().xpos < roverTracker.peekMarker().getX()
+                        && direction.equals("E"))) {
             getLocation();
             int centerIndex = (scanMap.getEdgeSize() - 1) / 2;
             direction1 = previousDirection;
-            
+
             detectRadioactive(roverTracker, scanMap.getScanMap());
             displayDiscoveredScience();
 
-            if ((!blocked(0, 1) && (blocked(1, -1, centerIndex, centerIndex + 1)
-                    || blocked(1, 1))) && !previousDirection.equals("N")) {
+            if ((!blocked(0, 1) && (blocked(1, -1, centerIndex, centerIndex + 1) || blocked(1, 1)))
+                    && !previousDirection.equals("N")) {
                 move("S");
                 previousDirection = "S";
                 continue;
             }
 
-            if ((!blocked(0, -1)
-                    && (blocked(-1, 1, centerIndex, centerIndex - 1)
-                            || blocked(-1, -1)))
+            if ((!blocked(0, -1) && (blocked(-1, 1, centerIndex, centerIndex - 1) || blocked(-1, -1)))
                     && !previousDirection.equals("S")) {
                 move("N");
                 previousDirection = "N";
                 continue;
             }
 
-            if ((!blocked(-1, 0) && (blocked(1, 1, centerIndex - 1, centerIndex)
-                    || blocked(-1, 1))) && !previousDirection.equals("E")) {
+            if ((!blocked(-1, 0) && (blocked(1, 1, centerIndex - 1, centerIndex) || blocked(-1, 1)))
+                    && !previousDirection.equals("E")) {
                 move("W");
                 previousDirection = "W";
                 continue;
             }
 
-            if ((!blocked(1, 0)
-                    && (blocked(-1, -1, centerIndex + 1, centerIndex)
-                            || blocked(1, -1)))
+            if ((!blocked(1, 0) && (blocked(-1, -1, centerIndex + 1, centerIndex) || blocked(1, -1)))
                     && !previousDirection.equals("W")) {
                 move("E");
                 previousDirection = "E";
@@ -357,8 +362,7 @@ public class ROVER_06 {
         }
     }
 
-    private void move(String direction)
-            throws IOException, InterruptedException {
+    private void move(String direction) throws IOException, InterruptedException {
         Coord previousLocation = roverTracker.getCurrentLocation();
         out.println("MOVE " + direction);
         getLocation();
@@ -377,13 +381,10 @@ public class ROVER_06 {
                 roverTracker.updateXPos(-1);
                 break;
             }
-            System.out.println(
-                    "Distance Left = " + roverTracker.getDistanceTracker().xpos
-                            + "," + roverTracker.getDistanceTracker().ypos);
-            System.out.println(
-                    "Current LOC: " + roverTracker.getCurrentLocation());
-            System.out.println(
-                    "Destination LOC: " + roverTracker.getDestination());
+            System.out.println("Distance Left = " + roverTracker.getDistanceTracker().xpos + ","
+                    + roverTracker.getDistanceTracker().ypos);
+            System.out.println("Current LOC: " + roverTracker.getCurrentLocation());
+            System.out.println("Destination LOC: " + roverTracker.getDestination());
             System.out.println("--------------------------------");
         }
         Thread.sleep(SLEEP_TIME);
@@ -393,23 +394,22 @@ public class ROVER_06 {
         MapTile[][] map = scanMap.getScanMap();
         int centerIndex = (scanMap.getEdgeSize() - 1) / 2;
         return map[centerIndex + xOffset][centerIndex + yOffset].getHasRover()
-                || map[centerIndex + xOffset][centerIndex + yOffset]
-                        .getTerrain() == Terrain.ROCK
-                || map[centerIndex + xOffset][centerIndex + yOffset]
-                        .getTerrain() == Terrain.NONE
-                || map[centerIndex + xOffset][centerIndex + yOffset]
-                        .getTerrain() == Terrain.SAND;
+                || map[centerIndex + xOffset][centerIndex + yOffset].getTerrain() == Terrain.ROCK
+                || map[centerIndex + xOffset][centerIndex + yOffset].getTerrain() == Terrain.NONE
+                || map[centerIndex + xOffset][centerIndex + yOffset].getTerrain() == Terrain.SAND;
     }
 
     private boolean blocked(int xOffset, int yOffset, int roverX, int roverY) {
         MapTile[][] map = scanMap.getScanMap();
         return map[roverX + xOffset][roverY + yOffset].getHasRover()
-                || map[roverX + xOffset][roverY + yOffset]
-                        .getTerrain() == Terrain.ROCK
-                || map[roverX + xOffset][roverY + yOffset]
-                        .getTerrain() == Terrain.NONE
-                || map[roverX + xOffset][roverY + yOffset]
-                        .getTerrain() == Terrain.SAND;
+                || map[roverX + xOffset][roverY + yOffset].getTerrain() == Terrain.ROCK
+                || map[roverX + xOffset][roverY + yOffset].getTerrain() == Terrain.NONE
+                || map[roverX + xOffset][roverY + yOffset].getTerrain() == Terrain.SAND;
+    }
+
+    private boolean blocked(MapTile mapTile) {
+        return mapTile.getHasRover() || mapTile.getTerrain() == Terrain.SAND || mapTile.getTerrain() == Terrain.ROCK
+                || mapTile.getTerrain() == Terrain.NONE;
     }
 
     /* Returns coordinate object that represents rover's current location */
@@ -425,17 +425,80 @@ public class ROVER_06 {
             roverTracker.setCurrentLocation(extractLOC(results));
         if (!roverTracker.getCurrentLocation().equals(previousLocation)) {
             this.doScan();
-            // scanMap.debugPrintMap();
-        };
+            scanMap.debugPrintMap();
+        }
+        ;
     }
 
-    private Coord requestToSwarmServer(String request) throws IOException {
+    private boolean isDestinationBlocked() {
+
+        MapTile[][] map = scanMap.getScanMap();
+
+        int xCurrent = roverTracker.getCurrentLocation().xpos;
+        int yCurrent = roverTracker.getCurrentLocation().ypos;
+
+        int xDestination = roverTracker.getDestination().xpos;
+        int yDestination = roverTracker.getDestination().ypos;
+
+        int xTemp;
+        int yTemp;
+
+        for (int x = -5; x < 6; x++) {
+            for (int y = -5; y < 6; y++) {
+                if (blocked(map[x + 5][y + 5])) {
+                    xTemp = xCurrent + x;
+                    yTemp = yCurrent + y;
+
+                    if (xTemp == xDestination && yTemp == yDestination) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /** @param distanceTracker
+     * @return true if the distance is within "range" of the ROVER. The rover
+     *         can see in a 11x11 range */
+    private boolean isInDestinationRange(Coord distanceTracker) {
+
+        /* 5 because the rover can only see 5 tiles NORTH, WEST, SOUTH, EAST.
+         * The rover is in the middle of the 11x11. */
+        boolean xInRange = distanceTracker.xpos <= 5;
+        boolean yInRange = distanceTracker.ypos <= 5;
+        return xInRange && yInRange;
+    }
+
+    /** @param request
+     *            The type of Coordinate you want from the server (LOC,
+     *            TARGET_LOC)
+     * @return The Swarm Server's response to your command
+     * @throws IOException */
+    private Coord requestCoordFromServer(String request) throws IOException {
         String response;
         do {
             out.println(request);
             response = in.readLine();
         } while (!response.startsWith(request));
         return extractLOC(response);
+
+    }
+
+    /** @return a coordinate in which the XPOS and YPOS is somewhere between the
+     *         starting and target XPOS and YPOS */
+    private Coord generateRandomCoord() {
+        int xLow = startCoord.xpos;
+        int xHigh = targetCoord.xpos;
+        int yLow = startCoord.ypos;
+        int yHigh = targetCoord.ypos;
+
+        Random r = new Random();
+
+        int x = r.nextInt(xHigh - xLow) + xLow;
+        int y = r.nextInt(yHigh - yLow) + yLow;
+
+        return new Coord(x, y);
     }
 
     /** Runs the client */
