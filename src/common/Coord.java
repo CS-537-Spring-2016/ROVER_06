@@ -11,15 +11,26 @@ public class Coord implements Comparable<Coord> {
 
     public int xpos;
     public int ypos;
+    public Science science;
+    public Terrain terrain;
 
     @Override
     public String toString() {
         return "Coord [xpos=" + xpos + ", ypos=" + ypos + "]";
     }
-
+    
+    public String toProtocol() {
+        return terrain + " " + science + " " + xpos + " " + ypos;
+    }
     public Coord(int x, int y) {
         this.xpos = x;
         this.ypos = y;
+    }
+    
+    public Coord(Terrain terrain, Science science, int x, int y) {
+        this(x,  y);
+        this.terrain = terrain;
+        this.science = science;
     }
 
     @Override
