@@ -22,8 +22,9 @@ public class Tracker {
     public Tracker() {
         distanceTracker = new Coord(0, 0);
         currentLocation = new Coord(0, 0);
-        markers = new Stack<>();
+        markers = new Stack<State>();
     }
+    
 
     public void setCurrentLocation(Coord currentLocation) {
         this.currentLocation = currentLocation;
@@ -103,6 +104,14 @@ public class Tracker {
     public boolean hasArrived() {
         return distanceTracker.xpos == 0 && distanceTracker.ypos == 0;
     }
+    
+    public void setArrived(boolean arrived) {
+        if (arrived) {
+            distanceTracker.xpos = 0;
+            distanceTracker.ypos = 0;
+            destination = currentLocation;
+        }
+    }
 
     public void setLastSuccessfulMove(Coord location) {
         lastSuccessfulMove = location;
@@ -113,7 +122,7 @@ public class Tracker {
                 && location.ypos == targetLocation.ypos;
     }
 
-    /** set Tracker's startinging point and destination. calculate the distance
+    /** set Tracker's starting point and destination. calculate the distance
      * to destination */
     public void initDestination(Coord destination) {
 
