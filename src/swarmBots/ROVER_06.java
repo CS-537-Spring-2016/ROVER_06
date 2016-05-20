@@ -40,7 +40,7 @@ public class ROVER_06 {
     /* swarm server constants */
     final String CURRENT_LOC = "LOC";
     final String TARGET_LOC = "TARGET_LOC";
-    final int SLEEP_TIME = 500;
+    final int SLEEP_TIME = 750;
     final int CENTER_INDEX = 5;
 
     CommunicationServer communicationServer;
@@ -99,10 +99,6 @@ public class ROVER_06 {
 
         /* move the rover towards its destination */
         doScan();
-        // startMission(startCoord);
-        // startMission(targetCoord);
-
-        /* Test */
         startMission(targetCoord);
         startMission(startCoord);
         while (true) {
@@ -219,7 +215,8 @@ public class ROVER_06 {
                 if (mapTile.getScience() == Science.RADIOACTIVE) {
                     int tileX = tracker.getCurrentLocation().xpos + (x - 5);
                     int tileY = tracker.getCurrentLocation().ypos + (y - 5);
-                    Coord coord = new Coord(mapTile.getTerrain(), mapTile.getScience(), tileX, tileY);
+                    Coord coord = new Coord(mapTile.getTerrain(), mapTile.getScience(), tileX,
+                            tileY);
 
                     if (!discoveredScience.contains(coord)) {
                         discoveredScience.add(coord);
@@ -232,8 +229,10 @@ public class ROVER_06 {
 
     private void startMission(Coord destination) throws IOException, InterruptedException {
 
+        /* set up rover tracker before it start its mission */
         roverTracker.initDestination(destination);
 
+        /* initial movement */
         while (!roverTracker.hasArrived()) {
 
             switch (resolveDirection()) {
@@ -273,18 +272,18 @@ public class ROVER_06 {
 
     private void accelerate(int xVelocity, int yVelocity) throws IOException, InterruptedException {
 
-        String direction = (xVelocity == 1) ? "E"
-                : (xVelocity == -1) ? "W" : (yVelocity == 1) ? "S" : (yVelocity == -1) ? "N" : null;
+        String direction = calculateDirection(xVelocity, yVelocity);
+
         while ((xVelocity != 0) ? roverTracker.getDistanceTracker().xpos != 0
                 : roverTracker.getDistanceTracker().ypos != 0) {
-
-            detectRadioactive(roverTracker, scanMap.getScanMap());
-            displayDiscoveredScience();
 
             Coord destination = roverTracker.getDestination();
             Coord current = roverTracker.getCurrentLocation();
 
-            if (isInDestinationRange(roverTracker.getDistanceTracker()) && isDestinationBlocked(current, destination)) {
+            /* if the rove arrives "sees" it destination and the map tile is
+             * blocked, then it will end the mission */
+            if (isInDestinationRange(roverTracker.getDistanceTracker())
+                    && isDestinationBlocked(current, destination)) {
                 System.out.println("Destination is blocked!");
 
                 roverTracker.setArrived(true);
@@ -294,8 +293,9 @@ public class ROVER_06 {
             if (!blocked(xVelocity, yVelocity)) {
                 move(direction);
             } else {
-                roverTracker.addMarker(new State(new Coord(roverTracker.getCurrentLocation().xpos + xVelocity,
-                        roverTracker.getCurrentLocation().ypos + yVelocity)));
+                roverTracker.addMarker(
+                        new State(new Coord(roverTracker.getCurrentLocation().xpos + xVelocity,
+                                roverTracker.getCurrentLocation().ypos + yVelocity)));
                 roverTracker.setLastSuccessfulMove(roverTracker.getCurrentLocation());
                 goAround(direction);
             }
@@ -303,32 +303,47 @@ public class ROVER_06 {
         }
     }
 
+    /** Calculate direction. Priority: E, W, S, N. This mean the rover will move
+     * left-right first. When it can't, it will move up-down */
+    private String calculateDirection(int xVelocity, int yVelocity) {
+        if (xVelocity == 1)
+            return "E";
+        else if (xVelocity == -1)
+            return "W";
+        else if (yVelocity == 1)
+            return "S";
+        else if (yVelocity == -1)
+            return "N";
+        else
+            return null;
+    }
+
     /** display a list of all the discovered science. list will follow the
      * protocol: TERRAIN SCIENCE X Y */
     private void displayDiscoveredScience() {
-        StringBuilder science = new StringBuilder("DISCOVERED SCIENCE: [");
+        StringBuilder science = new StringBuilder(rovername + " DISCOVERED SCIENCE: [");
         for (Coord c : discoveredScience) {
             science.append(c.toProtocol() + " ");
         }
         science.append("]");
         System.out.println(science.toString());
     }
-
+    
+    /* attempt to move around a "blocked" map tile*/
     private void goAround(String direction) throws InterruptedException, IOException {
 
         String previousDirection = "";
         String direction1 = previousDirection;
-        while ((roverTracker.getCurrentLocation().ypos > roverTracker.peekMarker().getY() && direction.equals("N"))
-                || (roverTracker.getCurrentLocation().xpos > roverTracker.peekMarker().getX() && direction.equals("W"))
-                || (roverTracker.getCurrentLocation().ypos < roverTracker.peekMarker().getY() && direction.equals("S"))
+        while ((roverTracker.getCurrentLocation().ypos > roverTracker.peekMarker().getY()
+                && direction.equals("N"))
+                || (roverTracker.getCurrentLocation().xpos > roverTracker.peekMarker().getX()
+                        && direction.equals("W"))
+                || (roverTracker.getCurrentLocation().ypos < roverTracker.peekMarker().getY()
+                        && direction.equals("S"))
                 || (roverTracker.getCurrentLocation().xpos < roverTracker.peekMarker().getX()
                         && direction.equals("E"))) {
-            getLocation();
             int centerIndex = (scanMap.getEdgeSize() - 1) / 2;
             direction1 = previousDirection;
-
-            detectRadioactive(roverTracker, scanMap.getScanMap());
-            displayDiscoveredScience();
 
             if ((!blocked(0, 1) && (blocked(1, -1, centerIndex, centerIndex + 1) || blocked(1, 1)))
                     && !previousDirection.equals("N")) {
@@ -337,7 +352,8 @@ public class ROVER_06 {
                 continue;
             }
 
-            if ((!blocked(0, -1) && (blocked(-1, 1, centerIndex, centerIndex - 1) || blocked(-1, -1)))
+            if ((!blocked(0, -1)
+                    && (blocked(-1, 1, centerIndex, centerIndex - 1) || blocked(-1, -1)))
                     && !previousDirection.equals("S")) {
                 move("N");
                 previousDirection = "N";
@@ -351,7 +367,8 @@ public class ROVER_06 {
                 continue;
             }
 
-            if ((!blocked(1, 0) && (blocked(-1, -1, centerIndex + 1, centerIndex) || blocked(1, -1)))
+            if ((!blocked(1, 0)
+                    && (blocked(-1, -1, centerIndex + 1, centerIndex) || blocked(1, -1)))
                     && !previousDirection.equals("W")) {
                 move("E");
                 previousDirection = "E";
@@ -366,8 +383,10 @@ public class ROVER_06 {
 
     private void move(String direction) throws IOException, InterruptedException {
         Coord previousLocation = roverTracker.getCurrentLocation();
+        /* request the server to move the rover */
         out.println("MOVE " + direction);
         getLocation();
+        
         if (!previousLocation.equals(roverTracker.getCurrentLocation())) {
             switch (direction.charAt(0)) {
             case ('N'):
@@ -383,13 +402,24 @@ public class ROVER_06 {
                 roverTracker.updateXPos(-1);
                 break;
             }
-            System.out.println("Distance Left = " + roverTracker.getDistanceTracker().xpos + ","
-                    + roverTracker.getDistanceTracker().ypos);
-            System.out.println("Current LOC: " + roverTracker.getCurrentLocation());
-            System.out.println("Destination LOC: " + roverTracker.getDestination());
-            System.out.println("--------------------------------");
+
+            /* scan the map for radioactive */
+            detectRadioactive(roverTracker, scanMap.getScanMap());
+
+            /* summary */
+            displaySummary();
         }
         Thread.sleep(SLEEP_TIME);
+    }
+
+    private void displaySummary() {
+        displayDiscoveredScience();
+        System.out.println(rovername + " Distance Left = " + roverTracker.getDistanceTracker().xpos
+                + "," + roverTracker.getDistanceTracker().ypos);
+        System.out.println(rovername + " Current LOC: " + roverTracker.getCurrentLocation());
+        System.out.println(rovername + " Destination LOC: " + roverTracker.getDestination());
+        System.out.println("--------------------------------");
+
     }
 
     private boolean blocked(int xOffset, int yOffset) {
@@ -413,8 +443,8 @@ public class ROVER_06 {
      * @return true if the tile is "blocked" or not pass-able: SAND, ROCK, NONE,
      *         or has a ROVER */
     private boolean blocked(MapTile mapTile) {
-        return mapTile.getHasRover() || mapTile.getTerrain() == Terrain.SAND || mapTile.getTerrain() == Terrain.ROCK
-                || mapTile.getTerrain() == Terrain.NONE;
+        return mapTile.getHasRover() || mapTile.getTerrain() == Terrain.SAND
+                || mapTile.getTerrain() == Terrain.ROCK || mapTile.getTerrain() == Terrain.NONE;
     }
 
     /* Returns coordinate object that represents rover's current location */
@@ -449,7 +479,8 @@ public class ROVER_06 {
                 int xAdjusted = current.xpos + x;
                 int yAdjusted = current.ypos + y;
 
-                if (blocked(map[x + 5][y + 5]) && xAdjusted == destination.xpos && yAdjusted == destination.ypos) {
+                if (blocked(map[x + 5][y + 5]) && xAdjusted == destination.xpos
+                        && yAdjusted == destination.ypos) {
                     return true;
                 }
             }
