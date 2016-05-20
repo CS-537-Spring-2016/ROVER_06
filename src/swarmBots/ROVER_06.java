@@ -227,6 +227,11 @@ public class ROVER_06 {
         }
     }
 
+    /** This is how the ROVER moves. A lot of credit to GROUP 3. The majority of
+     * these code came from them. Our code are similar but they implement a
+     * method to head towards a certain location, while previously our ROVER was
+     * mindlessly moving around obstacle. I've made some additional changes and
+     * Improvements */
     private void startMission(Coord destination) throws IOException, InterruptedException {
 
         /* set up rover tracker before it start its mission */
@@ -328,8 +333,8 @@ public class ROVER_06 {
         science.append("]");
         System.out.println(science.toString());
     }
-    
-    /* attempt to move around a "blocked" map tile*/
+
+    /* attempt to move around a "blocked" map tile */
     private void goAround(String direction) throws InterruptedException, IOException {
 
         String previousDirection = "";
@@ -386,7 +391,7 @@ public class ROVER_06 {
         /* request the server to move the rover */
         out.println("MOVE " + direction);
         getLocation();
-        
+
         if (!previousLocation.equals(roverTracker.getCurrentLocation())) {
             switch (direction.charAt(0)) {
             case ('N'):
@@ -539,5 +544,4 @@ public class ROVER_06 {
             new ROVER_06(args[0]).run();
         }
     }
-
 }
