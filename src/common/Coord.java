@@ -22,6 +22,11 @@ public class Coord implements Comparable<Coord> {
     public String toProtocol() {
         return terrain + " " + science + " " + xpos + " " + ypos;
     }
+    
+    public String toCommandCenterFormat() {
+        return terrain + " " + xpos + " " + ypos;
+    }
+    
     public Coord(int x, int y) {
         this.xpos = x;
         this.ypos = y;

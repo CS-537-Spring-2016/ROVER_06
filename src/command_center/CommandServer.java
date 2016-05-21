@@ -44,7 +44,6 @@ public class CommandServer {
                     + connectionSocket.getPort() + " connected");
 
             new Thread(new ClientHandler(connectionSocket)).start();
-
         }
     }
 
@@ -95,14 +94,14 @@ public class CommandServer {
                 }
 
             } catch (IOException e) {
-                e.printStackTrace();
+               System.out.println("Connection Dropped");
             }
         }
     }
 
     public void displayResult() {
         
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 5; i++) {
             System.out.println();
         }
         
@@ -122,9 +121,8 @@ public class CommandServer {
                 System.out.println();
             }
 
-            System.out.print(coords.get(i).toProtocol() + " ");
+            System.out.printf("%-15s", coords.get(i).toCommandCenterFormat());
         }
         System.out.println("\nTOTAL: " + coords.size());
-
     }
 }
