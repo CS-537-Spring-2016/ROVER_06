@@ -6,9 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Random;
-import java.util.Set;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -21,7 +19,8 @@ import common.State;
 import common.Tracker;
 import communication.CommunicationServer;
 import communication.Group;
-import enums.Science;
+import enums.RoverDriveType;
+import enums.RoverToolType;
 import enums.Terrain;
 
 /** The seed that this program is built on is a chat program example found here:
@@ -42,12 +41,14 @@ public class ROVER_06 {
     final String TARGET_LOC = "TARGET_LOC";
     final int SLEEP_TIME = 750;
     final int CENTER_INDEX = 5;
-
+    
+    /* communication module */
     CommunicationServer communicationServer;
-    Set<Coord> discoveredScience = new HashSet<Coord>();
 
     /* movement */
     Tracker roverTracker;
+    
+    /* coordinates */
     private Coord startCoord;
     private Coord targetCoord;
 
@@ -60,9 +61,6 @@ public class ROVER_06 {
 
         // keep track of rover current and target location
         roverTracker = new Tracker();
-
-        // server with all the ROVER INFO from blue corp
-        communicationServer = new CommunicationServer(Group.BLUE_CORP());
     }
 
     /** Connects to the server then enters the processing loop. */
@@ -73,9 +71,20 @@ public class ROVER_06 {
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         out = new PrintWriter(socket.getOutputStream(), true);
 
-        /* starts the communication server. will try to connect to all the other
-         * ROVERS on a separate thread. */
-        new Thread(communicationServer).start();
+        // ********* SET UP COMMUNICATION MODULE *********
+        Thread.sleep(SLEEP_TIME);
+        /* Your Group Info */
+        Group group = new Group(rovername, SERVER_ADDRESS, 53706, RoverDriveType.WHEELS,
+                RoverToolType.RANGE_BOOSTER, RoverToolType.RADIATION_SENSOR);
+
+        /* Setup communication, only communicates with gatherers */
+        communicationServer = new CommunicationServer(group,
+                Group.getGatherers(Group.blueCorp(SERVER_ADDRESS)));
+
+        /* Connect to the other ROVERS */
+        communicationServer.run();
+
+        // ****************************************************************
 
         // This sets the name of this instance of a swarmBot for
         // identifying thread to the server
@@ -206,27 +215,6 @@ public class ROVER_06 {
         return new Coord(Integer.parseInt(coordinates[1]), Integer.parseInt(coordinates[2]));
     }
 
-    /** iterate through a scan map to find a tile with radiation. get the
-     * adjusted (absolute) coordinate of the tile and added into a hash set */
-    private void detectRadioactive(Tracker tracker, MapTile[][] scanMapTiles) {
-        for (int x = 0; x < scanMapTiles.length; x++) {
-            for (int y = 0; y < scanMapTiles[x].length; y++) {
-                MapTile mapTile = scanMapTiles[x][y];
-                if (mapTile.getScience() == Science.RADIOACTIVE) {
-                    int tileX = tracker.getCurrentLocation().xpos + (x - 5);
-                    int tileY = tracker.getCurrentLocation().ypos + (y - 5);
-                    Coord coord = new Coord(mapTile.getTerrain(), mapTile.getScience(), tileX,
-                            tileY);
-
-                    if (!discoveredScience.contains(coord)) {
-                        discoveredScience.add(coord);
-                        communicationServer.writeToRovers(coord.toProtocol());
-                    }
-                }
-            }
-        }
-    }
-
     /** This is how the ROVER moves. A lot of credit to GROUP 3. The majority of
      * these code came from them. Our code are similar but they implement a
      * method to head towards a certain location, while previously our ROVER was
@@ -323,17 +311,6 @@ public class ROVER_06 {
             return null;
     }
 
-    /** display a list of all the discovered science. list will follow the
-     * protocol: TERRAIN SCIENCE X Y */
-    private void displayDiscoveredScience() {
-        StringBuilder science = new StringBuilder(rovername + " DISCOVERED SCIENCE: [");
-        for (Coord c : discoveredScience) {
-            science.append(c.toProtocol() + " ");
-        }
-        science.append("]");
-        System.out.println(science.toString());
-    }
-
     /* attempt to move around a "blocked" map tile */
     private void goAround(String direction) throws InterruptedException, IOException {
 
@@ -409,7 +386,8 @@ public class ROVER_06 {
             }
 
             /* scan the map for radioactive */
-            detectRadioactive(roverTracker, scanMap.getScanMap());
+            communicationServer.detectAndShare(scanMap.getScanMap(),
+                    roverTracker.getCurrentLocation(), 5);
 
             /* summary */
             displaySummary();
@@ -418,7 +396,6 @@ public class ROVER_06 {
     }
 
     private void displaySummary() {
-        displayDiscoveredScience();
         System.out.println(rovername + " Distance Left = " + roverTracker.getDistanceTracker().xpos
                 + "," + roverTracker.getDistanceTracker().ypos);
         System.out.println(rovername + " Current LOC: " + roverTracker.getCurrentLocation());
@@ -517,7 +494,6 @@ public class ROVER_06 {
             response = in.readLine();
         } while (!response.startsWith(request));
         return extractLOC(response);
-
     }
 
     /** @return a coordinate in which the XPOS and YPOS is somewhere between the
