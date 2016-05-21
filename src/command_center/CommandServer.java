@@ -5,12 +5,14 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import common.Coord;
 import enums.Science;
+import enums.Terrain;
 
 public class CommandServer {
 
@@ -19,10 +21,10 @@ public class CommandServer {
     public String name;
 
     public Map<Science, List<Coord>> scienceCoordMap;
-    int rCount = 0;
-    int oCount = 0;
-    int mCount = 0;
-    int cCount = 0;
+    List<Coord> rList = new ArrayList<Coord>();
+    List<Coord> oList = new ArrayList<Coord>();
+    List<Coord> mList = new ArrayList<Coord>();
+    List<Coord> cList = new ArrayList<Coord>();
 
     public CommandServer(String name, int port) {
         this.port = port;
@@ -49,7 +51,7 @@ public class CommandServer {
     class ClientHandler implements Runnable {
 
         Socket clientSocket;
-        
+
         public ClientHandler(Socket clientSocket) {
             this.clientSocket = clientSocket;
         }
@@ -64,30 +66,65 @@ public class CommandServer {
                     String line = reader.readLine();
                     String[] result = line.split(" ");
 
+                    Terrain terrain = Terrain.valueOf(result[0]);
+                    Science science = Science.valueOf(result[1]);
+                    int xpos = Integer.valueOf(result[2]);
+                    int ypos = Integer.valueOf(result[3]);
+                    Coord coord = new Coord(terrain, science, xpos, ypos);
+
                     switch (result[1]) {
                     case "RADIOACTIVE":
-                        rCount++;
+                        if (!rList.contains(coord))
+                            rList.add(coord);
                         break;
                     case "ORGANIC":
-                        oCount++;
+                        if (!oList.contains(coord))
+                            oList.add(coord);
                         break;
                     case "MINERAL":
-                        mCount++;
+                        if (!mList.contains(coord))
+                            mList.add(coord);
                         break;
                     case "CRYSTAL":
-                        cCount++;
+                        if (!rList.contains(coord))
+                            cList.add(coord);
                         break;
                     }
-                    
-                    System.out.println("R: " + rCount);
-                    System.out.println("O: " + oCount);
-                    System.out.println("M: " + mCount);
-                    System.out.println("C: " + cCount);
+
+                    displayResult();
                 }
 
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+    }
+
+    public void displayResult() {
+        
+        for (int i = 0; i < 10; i++) {
+            System.out.println();
+        }
+        
+        displayFormatedList(rList, "RADIOACTIVE");
+        displayFormatedList(cList, "CRYSTAL");
+        displayFormatedList(oList, "ORGANIC");
+        displayFormatedList(mList, "MINERAL");
+    }
+
+    public void displayFormatedList(List<Coord> coords, String message) {
+        System.out.println("***********************");
+        System.out.println(message);
+
+        for (int i = 0; i < coords.size(); i++) {
+
+            if (i % 3 == 0) {
+                System.out.println();
+            }
+
+            System.out.print(coords.get(i).toProtocol() + " ");
+        }
+        System.out.println("\nTOTAL: " + coords.size());
+
     }
 }
