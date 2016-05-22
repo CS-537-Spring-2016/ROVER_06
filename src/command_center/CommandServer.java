@@ -21,13 +21,23 @@ public class CommandServer {
     public int port;
     public String name;
 
+    /** A list of discovered Radioactive Science */
     List<Coord> rList = new ArrayList<Coord>();
+
+    /** A list of discovered Organic Science */
     List<Coord> oList = new ArrayList<Coord>();
+
+    /** A list of discovered Mineral Science */
     List<Coord> mList = new ArrayList<Coord>();
+
+    /** A list of discovered Crystal Science */
     List<Coord> cList = new ArrayList<Coord>();
 
+    /** A list of all the science that have been reported GATAHER */
     List<Coord> gatheredScience = new ArrayList<Coord>();
-    List<Coord> allScience = new ArrayList<Coord>();
+
+    /** A list of all the science that have not been gathered */
+    List<Coord> ungatheredScience = new ArrayList<Coord>();
 
     public CommandServer(String name, int port) {
         this.port = port;
@@ -37,8 +47,12 @@ public class CommandServer {
     public void startServer() throws IOException {
         listenSocket = new ServerSocket(port);
         System.out.println(name + " Activated!");
-        new Thread(new UpdateCarlos()).start();
 
+        /* Send out a list of science that have not been reported GATHER to
+         * GROUP 3 every X second */
+        new Thread(new UpdateCarlos()).start();
+        
+        
         while (true) {
 
             Socket connectionSocket = listenSocket.accept();
@@ -60,7 +74,7 @@ public class CommandServer {
                     socket = new Socket(Group.G3.getIp(), Group.G3.getPort());
                     dos = new DataOutputStream(socket.getOutputStream());
 
-                    for (Coord c : allScience) {
+                    for (Coord c : ungatheredScience) {
                         if (c.terrain != Terrain.ROCK) {
                             dos.writeBytes(c.toProtocol() + "\n");
                             dos.flush();
@@ -130,8 +144,8 @@ public class CommandServer {
 
                             Coord coord = new Coord(terrain, science, xpos, ypos);
                             gatheredScience.add(coord);
-                            allScience.remove(coord);
-                            System.out.println("Master List Size: " + allScience.size());
+                            ungatheredScience.remove(coord);
+                            System.out.println("Master List Size: " + ungatheredScience.size());
                         } else if (result.length == 4) {
                             Terrain terrain = Terrain.valueOf(result[0]);
                             Science science = Science.valueOf(result[1]);
@@ -174,7 +188,7 @@ public class CommandServer {
         private void updateList(List<Coord> list, Coord scienceCoord) {
             if (!list.contains(scienceCoord)) {
                 list.add(scienceCoord);
-                allScience.add(scienceCoord);
+                ungatheredScience.add(scienceCoord);
             }
         }
 
