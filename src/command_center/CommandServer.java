@@ -1,14 +1,17 @@
 package command_center;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
 import common.Coord;
+import communication.Group;
 import enums.Science;
 import enums.Terrain;
 
@@ -23,6 +26,9 @@ public class CommandServer {
     List<Coord> mList = new ArrayList<Coord>();
     List<Coord> cList = new ArrayList<Coord>();
 
+    List<Coord> gatheredScience = new ArrayList<Coord>();
+    List<Coord> allScience = new ArrayList<Coord>();
+
     public CommandServer(String name, int port) {
         this.port = port;
         this.name = name;
@@ -31,6 +37,7 @@ public class CommandServer {
     public void startServer() throws IOException {
         listenSocket = new ServerSocket(port);
         System.out.println(name + " Activated!");
+        new Thread(new UpdateCarlos()).start();
 
         while (true) {
 
@@ -40,6 +47,55 @@ public class CommandServer {
 
             new Thread(new ClientHandler(connectionSocket)).start();
         }
+    }
+
+    class UpdateCarlos implements Runnable {
+
+        @Override
+        public void run() {
+            while (true) {
+                Socket socket = null;
+                DataOutputStream dos = null;
+                try {
+                    socket = new Socket(Group.G3.getIp(), Group.G3.getPort());
+                    dos = new DataOutputStream(socket.getOutputStream());
+
+                    for (Coord c : allScience) {
+                        if (c.terrain != Terrain.ROCK) {
+                            dos.writeBytes(c.toProtocol() + "\n");
+                            dos.flush();
+                        }
+                    }
+                } catch (UnknownHostException e) {
+                    System.out.println(e);
+                    System.out.println("line 60-CommandServer");
+                } catch (IOException e) {
+                    System.out.println(e);
+                    System.out.println("line 63-CommandServer");
+                } finally {
+                    if (dos != null)
+                        try {
+                            dos.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    if (socket != null)
+                        try {
+                            socket.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                }
+
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+        }
+
     }
 
     class ClientHandler implements Runnable {
@@ -61,75 +117,96 @@ public class CommandServer {
                         new InputStreamReader(clientSocket.getInputStream()));
 
                 while (true) {
-                    String line = reader.readLine();
-                    String[] result = line.split(" ");
-                    
-                    Terrain terrain = Terrain.valueOf(result[0]);
-                    Science science = Science.valueOf(result[1]);
-                    int xpos = Integer.valueOf(result[2]);
-                    int ypos = Integer.valueOf(result[3]);
-                    Coord coord = new Coord(terrain, science, xpos, ypos);
+                    try {
 
-                    switch (result[1]) {
-                    case "RADIOACTIVE":
-                        updateList(rList, coord);
-                        break;
-                    case "ORGANIC":
-                        updateList(oList, coord);
-                        break;
-                    case "MINERAL":
-                        updateList(mList, coord);
-                        break;
-                    case "CRYSTAL":
-                        updateList(cList, coord);
-                        break;
+                        String line = reader.readLine();
+                        String[] result = line.split(" ");
+
+                        if (result.length == 5 && result[4].equals("GATHER")) {
+                            Terrain terrain = Terrain.valueOf(result[0]);
+                            Science science = Science.valueOf(result[1]);
+                            int xpos = Integer.valueOf(result[2]);
+                            int ypos = Integer.valueOf(result[3]);
+
+                            Coord coord = new Coord(terrain, science, xpos, ypos);
+                            gatheredScience.add(coord);
+                            allScience.remove(coord);
+                            System.out.println("Master List Size: " + allScience.size());
+                        } else if (result.length == 4) {
+                            Terrain terrain = Terrain.valueOf(result[0]);
+                            Science science = Science.valueOf(result[1]);
+                            int xpos = Integer.valueOf(result[2]);
+                            int ypos = Integer.valueOf(result[3]);
+                            Coord coord = new Coord(terrain, science, xpos, ypos);
+
+                            switch (result[1]) {
+                            case "RADIOACTIVE":
+                                updateList(rList, coord);
+                                break;
+                            case "ORGANIC":
+                                updateList(oList, coord);
+                                break;
+                            case "MINERAL":
+                                updateList(mList, coord);
+                                break;
+                            case "CRYSTAL":
+                                updateList(cList, coord);
+                                break;
+                            }
+
+                            /* Display result onto the console */
+                            displayResult();
+                        } else {
+
+                        }
+                    } catch (Exception e) {
+                        System.out.println(e);
+                    } finally {
+
                     }
-                    
-                    /* Display result onto the console*/
-                    displayResult();
-                    
                 }
-
-            } catch (IOException e) {
-                System.out.println("Connection Dropped");
+            } catch (Exception e) {
+                System.out.println(e);
             }
         }
-    }
 
-
-    /** If COORD is new, add them to the list */
-    private void updateList(List<Coord> list, Coord scienceCoord) {
-        if (!list.contains(scienceCoord))
-            list.add(scienceCoord);
-    }
-
-    /** Display all the science discovered onto the console */
-    private void displayResult() {
-
-        for (int i = 0; i < 5; i++) {
-            System.out.println();
+        /** If COORD is new, add them to the list */
+        private void updateList(List<Coord> list, Coord scienceCoord) {
+            if (!list.contains(scienceCoord)) {
+                list.add(scienceCoord);
+                allScience.add(scienceCoord);
+            }
         }
 
-        displayFormatedList(rList, "RADIOACTIVE");
-        displayFormatedList(cList, "CRYSTAL");
-        displayFormatedList(oList, "ORGANIC");
-        displayFormatedList(mList, "MINERAL");
-    }
+        /** Display all the science discovered onto the console */
+        private void displayResult() {
 
-    /** Display result of a list, but only 3 result per line. */
-    private void displayFormatedList(List<Coord> coords, String message) {
-        System.out.println("***********************");
-        System.out.println(message);
-
-        for (int i = 0; i < coords.size(); i++) {
-
-            if (i % 3 == 0) {
+            for (int i = 0; i < 5; i++) {
                 System.out.println();
             }
-            
-            /* Each science entry will take 15 "spaces" */
-            System.out.printf("%-15s", coords.get(i).toCommandCenterFormat());
+
+            displayFormatedList(rList, "RADIOACTIVE");
+            displayFormatedList(cList, "CRYSTAL");
+            displayFormatedList(oList, "ORGANIC");
+            displayFormatedList(mList, "MINERAL");
         }
-        System.out.println("\nTOTAL: " + coords.size());
+
+        /** Display result of a list, but only 3 result per line. */
+        private void displayFormatedList(List<Coord> coords, String message) {
+            System.out.println("***********************");
+            System.out.println(message);
+
+            for (int i = 0; i < coords.size(); i++) {
+
+                if (i % 3 == 0) {
+                    System.out.println();
+                }
+
+                /* Each science entry will take 15 "spaces" */
+                System.out.printf("%-15s", coords.get(i).toCommandCenterFormat());
+            }
+            System.out.println("\nTOTAL: " + coords.size());
+        }
+
     }
 }
