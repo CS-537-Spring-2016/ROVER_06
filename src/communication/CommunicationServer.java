@@ -23,11 +23,11 @@ public class CommunicationServer implements Runnable, Detector, Sender  {
     private Receiver receiver;
     private RoverQueue roverQueue;
 
-    public CommunicationServer(Group group, List<Group> groups) throws IOException {
+    public CommunicationServer(Group group) throws IOException {
         groupOutputMap = new HashMap<Group, DataOutputStream>();
         discoveredSciences = new ArrayList<Coord>();
         this.group = group;
-        groupList = removeSelfFromGroups(groups);
+        groupList = removeSelfFromGroups(Group.BLUE_CORP);
         receiver = new RoverReceiver();
     }
 
