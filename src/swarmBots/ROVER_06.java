@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
 
 import com.google.gson.Gson;
@@ -76,7 +77,7 @@ public class ROVER_06 {
                 RoverToolType.RANGE_BOOSTER, RoverToolType.RADIATION_SENSOR);
 
         /* Setup communication. */
-        communicationServer = new CommunicationServer(group);
+        communicationServer = new CommunicationServer(group, Arrays.asList(Group.G99));
 
         /* Connect to the other ROVERS */
         communicationServer.run();
@@ -289,7 +290,6 @@ public class ROVER_06 {
                 roverTracker.setLastSuccessfulMove(roverTracker.getCurrentLocation());
                 goAround(direction);
             }
-            getLocation();
         }
     }
 
