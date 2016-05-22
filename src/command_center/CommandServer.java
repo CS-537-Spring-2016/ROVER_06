@@ -6,9 +6,7 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import common.Coord;
 import enums.Science;
@@ -20,7 +18,6 @@ public class CommandServer {
     public int port;
     public String name;
 
-    public Map<Science, List<Coord>> scienceCoordMap;
     List<Coord> rList = new ArrayList<Coord>();
     List<Coord> oList = new ArrayList<Coord>();
     List<Coord> mList = new ArrayList<Coord>();
@@ -29,8 +26,6 @@ public class CommandServer {
     public CommandServer(String name, int port) {
         this.port = port;
         this.name = name;
-
-        scienceCoordMap = new HashMap<Science, List<Coord>>();
     }
 
     public void startServer() throws IOException {
@@ -57,6 +52,10 @@ public class CommandServer {
 
         @Override
         public void run() {
+            /* Whenever a ROVER discovered SCIENCE they will write a message.
+             * That message will be received here. The science will be added
+             * into their own list. After the science is added, display the
+             * updated result onto the console. */
             try {
                 BufferedReader reader = new BufferedReader(
                         new InputStreamReader(clientSocket.getInputStream()));
@@ -64,7 +63,7 @@ public class CommandServer {
                 while (true) {
                     String line = reader.readLine();
                     String[] result = line.split(" ");
-
+                    
                     Terrain terrain = Terrain.valueOf(result[0]);
                     Science science = Science.valueOf(result[1]);
                     int xpos = Integer.valueOf(result[2]);
@@ -73,45 +72,52 @@ public class CommandServer {
 
                     switch (result[1]) {
                     case "RADIOACTIVE":
-                        if (!rList.contains(coord))
-                            rList.add(coord);
+                        updateList(rList, coord);
                         break;
                     case "ORGANIC":
-                        if (!oList.contains(coord))
-                            oList.add(coord);
+                        updateList(oList, coord);
                         break;
                     case "MINERAL":
-                        if (!mList.contains(coord))
-                            mList.add(coord);
+                        updateList(mList, coord);
                         break;
                     case "CRYSTAL":
-                        if (!rList.contains(coord))
-                            cList.add(coord);
+                        updateList(cList, coord);
                         break;
                     }
-
+                    
+                    /* Display result onto the console*/
                     displayResult();
+                    
                 }
 
             } catch (IOException e) {
-               System.out.println("Connection Dropped");
+                System.out.println("Connection Dropped");
             }
         }
     }
 
-    public void displayResult() {
-        
+
+    /** If COORD is new, add them to the list */
+    private void updateList(List<Coord> list, Coord scienceCoord) {
+        if (!list.contains(scienceCoord))
+            list.add(scienceCoord);
+    }
+
+    /** Display all the science discovered onto the console */
+    private void displayResult() {
+
         for (int i = 0; i < 5; i++) {
             System.out.println();
         }
-        
+
         displayFormatedList(rList, "RADIOACTIVE");
         displayFormatedList(cList, "CRYSTAL");
         displayFormatedList(oList, "ORGANIC");
         displayFormatedList(mList, "MINERAL");
     }
 
-    public void displayFormatedList(List<Coord> coords, String message) {
+    /** Display result of a list, but only 3 result per line. */
+    private void displayFormatedList(List<Coord> coords, String message) {
         System.out.println("***********************");
         System.out.println(message);
 
@@ -120,7 +126,8 @@ public class CommandServer {
             if (i % 3 == 0) {
                 System.out.println();
             }
-
+            
+            /* Each science entry will take 15 "spaces" */
             System.out.printf("%-15s", coords.get(i).toCommandCenterFormat());
         }
         System.out.println("\nTOTAL: " + coords.size());
