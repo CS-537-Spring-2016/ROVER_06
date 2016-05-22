@@ -41,18 +41,16 @@ public class ROVER_06 {
     final String TARGET_LOC = "TARGET_LOC";
     final int SLEEP_TIME = 750;
     final int CENTER_INDEX = 5;
-    
+
     /* communication module */
     CommunicationServer communicationServer;
 
     /* movement */
     Tracker roverTracker;
-    
+
     /* coordinates */
     private Coord startCoord;
     private Coord targetCoord;
-
-    boolean beginNewMission = false;
 
     public ROVER_06(String serverAddress) {
         System.out.println("ROVER_06 rover object constructed");
@@ -72,14 +70,13 @@ public class ROVER_06 {
         out = new PrintWriter(socket.getOutputStream(), true);
 
         // ********* SET UP COMMUNICATION MODULE *********
-        Thread.sleep(SLEEP_TIME);
+        
         /* Your Group Info */
         Group group = new Group(rovername, SERVER_ADDRESS, 53706, RoverDriveType.WHEELS,
                 RoverToolType.RANGE_BOOSTER, RoverToolType.RADIATION_SENSOR);
 
-        /* Setup communication, only communicates with gatherers */
-        communicationServer = new CommunicationServer(group,
-                Group.getGatherers(Group.blueCorp(SERVER_ADDRESS)));
+        /* Setup communication. */
+        communicationServer = new CommunicationServer(group);
 
         /* Connect to the other ROVERS */
         communicationServer.run();
