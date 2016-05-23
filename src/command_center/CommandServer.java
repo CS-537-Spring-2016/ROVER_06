@@ -7,6 +7,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -163,7 +164,7 @@ public class CommandServer {
 
                         Coord coord = new Coord(terrain, science, xpos, ypos);
                         System.out.println("Ungathered List: " + ungatheredScience.size());
-                        ungatheredScience.remove(coord);
+                        removeCoord(ungatheredScience, coord);
                         System.out.println(
                                 "Ungathered List after removeal: " + ungatheredScience.size());
                     } else if (result.length == 4) {
@@ -181,18 +182,35 @@ public class CommandServer {
                     }
                 } catch (SocketException e) {
                     System.out.println("Connection Dropped");
+                } finally {
+                    if (reader != null) {
+                        reader.close();
+                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+        
+        /** "Synchronized" removal of Science Coordinate*/
+        private void removeCoord(List<Coord> list, Coord coord) {
+            
+            synchronized(list) {
+                list.remove(coord);
+            }
+        }
 
-        /** If COORD is new, add them to the list */
+        /** "Synchronized" addition of Science Coordinate */
         private void addCoordToLists(Coord coord) {
-            if (!allScience.contains(coord))
-                allScience.add(coord);
-            if (!ungatheredScience.add(coord))
-                ungatheredScience.add(coord);
+            synchronized (allScience) {
+                if (!allScience.contains(coord))
+                    allScience.add(coord);
+            }
+            
+            synchronized (ungatheredScience) {
+                if (!ungatheredScience.add(coord))
+                    ungatheredScience.add(coord);
+            }
         }
 
         /** Filter a list of coordinate, return coordinate that match the filter
