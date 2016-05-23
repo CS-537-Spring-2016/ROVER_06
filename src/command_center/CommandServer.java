@@ -1,20 +1,19 @@
 package command_center;
 
 import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import common.Coord;
 import communication.Group;
+import communication.RoverSender;
+import communication.Sender;
 import enums.Science;
 import enums.Terrain;
 
@@ -32,7 +31,8 @@ public class CommandServer {
     public int port;
     public String name;
 
-    /** A list of all the science that have not been reported GATHERED */
+    /** A list of all the science that have been discovered but still need to be
+     * GATHERED */
     private List<Coord> ungatheredScience = new ArrayList<Coord>();
 
     /** A list of all the Science discovered */
@@ -41,8 +41,12 @@ public class CommandServer {
     /** Time to wait till next broadcast of science. */
     private int timeWaitTillNextBroadcast = 5000;
 
-    /** A set of groups that will receive a list of all ungathered science */
+    /** A List of groups that will receive a Coordinates of Science to still
+     * need to be GATHRED */
     private List<Group> broadcastGroups = new ArrayList<Group>();
+
+    /** Communicate module use to write message to other ROVERS */
+    private Sender sender = new RoverSender();
 
     public CommandServer(String name, int port) {
         this.port = port;
@@ -110,41 +114,17 @@ public class CommandServer {
         public void run() {
             while (true) {
 
-                /* Iterate through the "broadcast group list". For each element,
-                 * create a socket. If the socket is successfully, if the ROVER
-                 * is online, create a output stream and "rebroadcast" all the
-                 * ungathered science coordinates. After all the sciences have
-                 * been "rebroadcast", close the output stream. After all groups
-                 * have been served, sleep for "broadcast rate" then repeat the
-                 * loop again */
-                for (Group g : broadcastGroups) {
-                    Socket socket;
-                    try {
-                        socket = new Socket(g.getIp(), g.getPort());
-                        DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-
-                        for (Coord c : ungatheredScience) {
-                            dos.writeBytes(c.toProtocol() + "\n");
-                            dos.flush();
-                        }
-
-                        /* Close the stream. Closing the stream will close the
-                         * socket too. */
-                        dos.close();
-
-                    } catch (ConnectException e) {
-                        /* No Connection Exception. If the ROVER is not online,
-                         * do nothing. Try again later */
-                    } catch (UnknownHostException e) {
-                        e.printStackTrace();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                /* Broadcast the coordinate of all science that still need to be
+                 * GATHERED */
+                for (Coord c : ungatheredScience) {
+                    sender.shareScience(broadcastGroups, c);
                 }
 
                 try {
+
                     /* Wait for a while till next broadcast */
                     Thread.sleep(timeWaitTillNextBroadcast);
+
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -170,48 +150,43 @@ public class CommandServer {
                 BufferedReader reader = new BufferedReader(
                         new InputStreamReader(clientSocket.getInputStream()));
 
-                while (true) {
-                    try {
+                try {
 
-                        String line = reader.readLine();
-                        String[] result = line.split(" ");
+                    String line = reader.readLine();
+                    String[] result = line.split(" ");
 
-                        if (result.length == 5 && result[4].equals("GATHER")) {
-                            Terrain terrain = Terrain.valueOf(result[0]);
-                            Science science = Science.valueOf(result[1]);
-                            int xpos = Integer.valueOf(result[2]);
-                            int ypos = Integer.valueOf(result[3]);
+                    if (result.length == 5 && result[4].equals("GATHER")) {
+                        Terrain terrain = Terrain.valueOf(result[0]);
+                        Science science = Science.valueOf(result[1]);
+                        int xpos = Integer.valueOf(result[2]);
+                        int ypos = Integer.valueOf(result[3]);
 
-                            Coord coord = new Coord(terrain, science, xpos, ypos);
-                            System.out.println("Ungathered List: " + ungatheredScience.size());
-                            ungatheredScience.remove(coord);
-                            System.out.println("Ungathered List after removeal: " + ungatheredScience.size());
-                        } else if (result.length == 4) {
-                            Terrain terrain = Terrain.valueOf(result[0]);
-                            Science science = Science.valueOf(result[1]);
-                            int xpos = Integer.valueOf(result[2]);
-                            int ypos = Integer.valueOf(result[3]);
-                            Coord coord = new Coord(terrain, science, xpos, ypos);
+                        Coord coord = new Coord(terrain, science, xpos, ypos);
+                        System.out.println("Ungathered List: " + ungatheredScience.size());
+                        ungatheredScience.remove(coord);
+                        System.out.println(
+                                "Ungathered List after removeal: " + ungatheredScience.size());
+                    } else if (result.length == 4) {
+                        Terrain terrain = Terrain.valueOf(result[0]);
+                        Science science = Science.valueOf(result[1]);
+                        int xpos = Integer.valueOf(result[2]);
+                        int ypos = Integer.valueOf(result[3]);
+                        Coord coord = new Coord(terrain, science, xpos, ypos);
 
-                            /* Add Science to the list if it is not already
-                             * there */
-                            addCoordToLists(coord);
+                        /* Add Science to the list if it is not already there */
+                        addCoordToLists(coord);
 
-                            /* Display result onto the console */
-                            displayResult();
-                        } else {
-
-                        }
-                    } catch (SocketException e) {
-                        System.out.println("Connection Dropped");
-                        break;
+                        /* Display result onto the console */
+                        displayResult();
                     }
+                } catch (SocketException e) {
+                    System.out.println("Connection Dropped");
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
-        
+
         /** If COORD is new, add them to the list */
         private void addCoordToLists(Coord coord) {
             if (!allScience.contains(coord))
@@ -219,8 +194,9 @@ public class CommandServer {
             if (!ungatheredScience.add(coord))
                 ungatheredScience.add(coord);
         }
-        
-        /** Filter a list of coordinate, return coordinate that match the filter criteria*/
+
+        /** Filter a list of coordinate, return coordinate that match the filter
+         * criteria */
         private List<Coord> filterCoords(List<Coord> list, Science filterScience) {
             return allScience.stream().filter((Coord c) -> c.science == filterScience)
                     .collect(Collectors.toList());
