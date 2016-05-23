@@ -96,7 +96,6 @@ public class ROVER_06 {
         System.out.println("ROVER_06 equipment list results " + getEquipment() + "\n");
 
         /* request current and target location */
-        startCoord = requestCoordFromServer(CURRENT_LOC);
         targetCoord = requestCoordFromServer(TARGET_LOC);
 
         /* initialize current location */
