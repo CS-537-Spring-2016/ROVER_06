@@ -50,7 +50,7 @@ public class ROVER_06 {
     Tracker roverTracker;
 
     /* coordinates */
-    private Coord startCoord;
+    private Coord startCoord = new Coord(9, 9);
     private Coord targetCoord;
 
     public ROVER_06(String serverAddress) {
@@ -78,9 +78,6 @@ public class ROVER_06 {
 
         /* Setup communication. */
         communicationServer = new CommunicationServer(group, Arrays.asList(Group.G99));
-
-        /* Connect to the other ROVERS */
-        communicationServer.run();
 
         // ****************************************************************
 
