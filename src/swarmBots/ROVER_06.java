@@ -76,8 +76,9 @@ public class ROVER_06 {
         Group group = new Group(rovername, SERVER_ADDRESS, 53706, RoverDriveType.WHEELS,
                 RoverToolType.RANGE_BOOSTER, RoverToolType.RADIATION_SENSOR);
 
-        /* Setup communication. */
-        communicationServer = new CommunicationServer(group, Arrays.asList(Group.G99));
+        /* Setup communication Server */
+        communicationServer = new CommunicationServer(group);
+        communicationServer.setGroupList(Group.G99);
 
         // ****************************************************************
 

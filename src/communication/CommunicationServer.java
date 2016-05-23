@@ -1,55 +1,60 @@
 package communication;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import common.Coord;
 import common.MapTile;
-import common.RoverQueue;
 
-public class CommunicationServer implements Runnable, Detector, Sender  {
+public class CommunicationServer implements Detector {
 
-    private Map<Group, DataOutputStream> groupOutputMap;
-    private List<Coord> discoveredSciences;
-    private List<Group> groupList;
+    /** List of group that this ROVER is communicating to */
+    private List<Group> groupList = new ArrayList<Group>();
+
+    /** This ROVER key information: name, IP, port number */
     private Group group;
-    private Receiver receiver;
-    private RoverQueue roverQueue;
+
+    /** Coordinates of all the Science discovered by this ROVER */
+    private List<Coord> discoveredSciences = new ArrayList<Coord>();
+
+    /** Communication Module use to receive message from others */
+    private Receiver receiver = new RoverReceiver();
+
+    /** Communication Module use to write message to others */
+    private Sender sender = new RoverSender();
 
     public CommunicationServer(Group group) throws IOException {
-        groupOutputMap = new HashMap<Group, DataOutputStream>();
-        discoveredSciences = new ArrayList<Coord>();
         this.group = group;
-        groupList = removeSelfFromGroups(Group.BLUE_CORP);
-        receiver = new RoverReceiver();
     }
 
+    /** Set the Groups this ROVER will communicate with */
+    public void setGroupList(Group... groups) {
+        List<Group> newGroupList = new ArrayList<Group>();
+        for (Group g : groups)
+            newGroupList.add(g);
+        groupList = removeSelfFromGroups(newGroupList);
+    }
+    /** Set the Groups this ROVER will communicate with */
+    public void setGroupList(List<Group> groups) {
+        groupList = removeSelfFromGroups(groups);
+    }
+
+    /** Start receiver server. receive incoming science coordinates from other
+     * ROVERS */
     public void startServer() throws IOException {
         receiver.startServer(new ServerSocket(group.getPort()));
     }
 
-    public Receiver getReceiver() {
-        return receiver;
-    }
-    
-    public RoverQueue getRoverQueue() {
-        return roverQueue;
-    }
-
+    /** @return A list of science shared to me from other ROVERS */
     public List<Coord> getShareScience() {
         return receiver.getSharedCoords();
     }
 
     /** Scan the map for science. Update rover science list. Share the science
      * to all the ROVERS. Display result on console. Also display the list of
-     * connected ROVER and all the SCIENCE shared to you that are not filetered
+     * connected ROVER and all the SCIENCE shared to you that are not filtered
      * 
      * @param map
      *            Result of scanMap.getScanMap(). Use to check for science
@@ -64,30 +69,15 @@ public class CommunicationServer implements Runnable, Detector, Sender  {
         List<Coord> detectedSciences = detectScience(map, currentLoc, sightRange);
         List<Coord> newSciences = updateDiscoveries(detectedSciences);
         for (Coord c : newSciences) {
-            shareScience(convertToList(groupOutputMap.values()), c);
+            shareScience(groupList, c);
         }
         displayAllDiscoveries();
-        displayRoversImConnectedTo();
-        displayNumRoversConnectedToMe();
         displayShareScience();
-    }
-
-    private List<DataOutputStream> convertToList(Collection<DataOutputStream> values) {
-        List<DataOutputStream> output_streams = new ArrayList<DataOutputStream>();
-        for (DataOutputStream dos : values) {
-            output_streams.add(dos);
-        }
-        return output_streams;
-    }
-
-    public void displayNumRoversConnectedToMe() {
-        System.out.println(
-                group.getName() + " ROVERS-CONNECTED-TO-ME: " + receiver.getRoversConnectedToMe());
     }
 
     @Override
     public List<Coord> detectScience(MapTile[][] map, Coord rover_coord, int sightRange) {
-        List<Coord> science_coords = new ArrayList<Coord>();
+        List<Coord> scienceCoords = new ArrayList<Coord>();
 
         /* iterate through every MapTile Object in the 2D Array. If the MapTile
          * contains science, calculate and save the coordinates of the tiles. */
@@ -101,13 +91,14 @@ public class CommunicationServer implements Runnable, Detector, Sender  {
                     int tileY = rover_coord.ypos + (y - sightRange);
                     Coord coord = new Coord(mapTile.getTerrain(), mapTile.getScience(), tileX,
                             tileY);
-                    science_coords.add(coord);
+                    scienceCoords.add(coord);
                 }
             }
         }
-        return science_coords;
+        return scienceCoords;
     }
 
+    /** Display summary of sciences discovered by this ROVER */
     public void displayAllDiscoveries() {
         System.out.println(group.getName() + " SCIENCE-DISCOVERED-BY-ME: "
                 + toProtocolString(discoveredSciences));
@@ -115,12 +106,7 @@ public class CommunicationServer implements Runnable, Detector, Sender  {
                 + discoveredSciences.size());
     }
 
-    public void displayRoversImConnectedTo() {
-        System.out.println(group.getName() + " CONNECTIONS: " + groupOutputMap.keySet());
-        System.out.println(
-                group.getName() + " ROVERS-IM-CONNECTED-TO: " + groupOutputMap.keySet().size());
-    }
-
+    /** Display summary of all the science share to me by other ROVERS */
     public void displayShareScience() {
         System.out.println(
                 group.getName() + " SCIENCES-SHARED-TO-ME: " + toProtocolString(getShareScience()));
@@ -128,6 +114,8 @@ public class CommunicationServer implements Runnable, Detector, Sender  {
                 group.getName() + " TOTAL-SCIENCE-SHARED-TO-ME: " + getShareScience().size());
     }
 
+    /** Remove this ROVER group from a List of Group. Used primary to avoid
+     * communicating with self */
     private List<Group> removeSelfFromGroups(List<Group> groups) {
         List<Group> groupsWithoutMe = new ArrayList<Group>();
         for (Group g : groups) {
@@ -136,39 +124,6 @@ public class CommunicationServer implements Runnable, Detector, Sender  {
             }
         }
         return groupsWithoutMe;
-    }
-
-    @Override
-    public void run() {
-        
-        System.out.println("GROUP LIST SIZE: " + groupList);
-
-        /* Will try to connect to all the ROVERs on a separate Thread. Add them
-         * to a list if connection is successful. */
-        for (Group group : groupList) {
-
-            new Thread(() -> {
-                final int MAX_ATTEMPTS = 60;
-                final int TIME_WAIT_TILL_NEXT_ATTEMPT = 1000; // milliseconds
-                int attempts = 0;
-                Socket socket = null;
-
-                do {
-                    try {
-                        socket = new Socket(group.getIp(), group.getPort());
-                        groupOutputMap.put(group, new DataOutputStream(socket.getOutputStream()));
-                        System.out.println(group.getName() + " CONNECTED TO " + group);
-                    } catch (Exception e) {
-                        try {
-                            Thread.sleep(TIME_WAIT_TILL_NEXT_ATTEMPT);
-                            attempts++;
-                        } catch (Exception e1) {
-                            e1.printStackTrace();
-                        }
-                    }
-                } while (socket == null && attempts <= MAX_ATTEMPTS);
-            }).start();
-        }
     }
 
     /** @param coords
@@ -202,12 +157,8 @@ public class CommunicationServer implements Runnable, Detector, Sender  {
         return new_sciences;
     }
 
-    @Override
-    public void shareScience(List<DataOutputStream> outputStreams, Coord coord) throws IOException {
-        for (DataOutputStream dos : outputStreams) {
-            dos.writeBytes(coord.toProtocol() + "\n");
-            dos.flush();
-        }
+    /** Share the Science Coordinate to everybody all the Groups */
+    public void shareScience(List<Group> groupList, Coord coord) {
+        sender.shareScience(groupList, coord);
     }
-
 }
