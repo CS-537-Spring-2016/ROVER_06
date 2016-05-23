@@ -7,6 +7,7 @@ import java.util.List;
 
 import common.Coord;
 import common.MapTile;
+import enums.Terrain;
 
 public class CommunicationServer implements Detector {
 
@@ -36,6 +37,7 @@ public class CommunicationServer implements Detector {
             newGroupList.add(g);
         groupList = removeSelfFromGroups(newGroupList);
     }
+
     /** Set the Groups this ROVER will communicate with */
     public void setGroupList(List<Group> groups) {
         groupList = removeSelfFromGroups(groups);
@@ -45,6 +47,11 @@ public class CommunicationServer implements Detector {
      * ROVERS */
     public void startServer() throws IOException {
         receiver.startServer(new ServerSocket(group.getPort()));
+    }
+
+    /** ROVER will ignore Science on these terrains during communication */
+    public void ignoreTerrain(Terrain... terrains) {
+        receiver.ignoreTerrains(terrains);
     }
 
     /** @return A list of science shared to me from other ROVERS */
