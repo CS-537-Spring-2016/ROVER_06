@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import javax.swing.plaf.synth.SynthSpinnerUI;
+
 import common.Coord;
 import communication.Group;
 import communication.RoverSender;
@@ -81,6 +83,45 @@ public class CommandServer {
         this.timeWaitTillNextBroadcast = milliseconds;
     }
 
+    /** Filter a list of coordinate, return coordinate that match the filter
+     * criteria */
+    private List<Coord> filterCoords(List<Coord> list, Science filterScience) {
+        return list.stream().filter((Coord c) -> c.science == filterScience)
+                .collect(Collectors.toList());
+    }
+
+    /** Display all the science discovered onto the console */
+    private void displayResult(List<Coord> list) {
+        
+        synchronized (this) {
+            System.out.println("*************************************");
+            
+            displayFormatedList(filterCoords(list, Science.RADIOACTIVE), "RADIOACTIVE");
+            displayFormatedList(filterCoords(list, Science.CRYSTAL), "CRYSTAL");
+            displayFormatedList(filterCoords(list, Science.ORGANIC), "ORGANIC");
+            displayFormatedList(filterCoords(list, Science.MINERAL), "MINERAL");
+        }
+        
+    }
+
+    /** Display result of a list, but only 3 result per line. */
+    private void displayFormatedList(List<Coord> coords, String message) {
+        System.out.println(message);
+
+        for (int i = 0; i < coords.size(); i++) {
+
+            if (i % 3 == 0) {
+                System.out.println();
+            }
+
+            /* Each science entry will take 15 "spaces" */
+            System.out.printf("%-15s", coords.get(i).toCommandCenterFormat());
+        }
+        System.out.println("\nTOTAL: " + coords.size());
+
+        System.out.println("---------------------------------");
+    }
+
     /** Start the Command Center's server. Accept Science from all ROVERS and
      * rebroadcast ungathered Science to selected ROVERS */
     public void startServer() throws IOException {
@@ -98,8 +139,7 @@ public class CommandServer {
 
             /* Wait for a connection */
             Socket connectionSocket = listenSocket.accept();
-            System.out.println(connectionSocket.getInetAddress() + " at PORT: "
-                    + connectionSocket.getPort() + " connected");
+            System.out.println("Connection: " + connectionSocket.getInetAddress().toString());
 
             /* Serve the client on a separated Thread */
             new Thread(new ClientHandler(connectionSocket)).start();
@@ -116,8 +156,10 @@ public class CommandServer {
 
                 /* Broadcast the coordinate of all science that still need to be
                  * GATHERED */
-                for (Coord c : ungatheredScience) {
-                    sender.shareScience(broadcastGroups, c);
+                synchronized (ungatheredScience) {
+                    for (Coord c : ungatheredScience) {
+                        sender.shareScience(broadcastGroups, c);
+                    }
                 }
 
                 try {
@@ -126,6 +168,8 @@ public class CommandServer {
                     Thread.sleep(timeWaitTillNextBroadcast);
 
                 } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -155,7 +199,7 @@ public class CommandServer {
                     String line = reader.readLine();
                     String[] result = line.split(" ");
 
-                    if (result.length == 5 && result[4].equals("GATHER")) {
+                    if (result.length == 5 && result[4].equals("GATHERED")) {
                         Terrain terrain = Terrain.valueOf(result[0]);
                         Science science = Science.valueOf(result[1]);
                         int xpos = Integer.valueOf(result[2]);
@@ -175,9 +219,10 @@ public class CommandServer {
 
                         /* Add Science to the list if it is not already there */
                         addCoordToLists(coord);
-
+                        
                         /* Display result onto the console */
-                        displayResult();
+                        displayResult(allScience);
+
                     }
                 } catch (SocketException e) {
                     System.out.println("Connection Dropped");
@@ -190,11 +235,11 @@ public class CommandServer {
                 e.printStackTrace();
             }
         }
-        
-        /** "Synchronized" removal of Science Coordinate*/
+
+        /** "Synchronized" removal of Science Coordinate */
         private void removeCoord(List<Coord> list, Coord coord) {
-            
-            synchronized(list) {
+
+            synchronized (list) {
                 list.remove(coord);
             }
         }
@@ -205,48 +250,11 @@ public class CommandServer {
                 if (!allScience.contains(coord))
                     allScience.add(coord);
             }
-            
+
             synchronized (ungatheredScience) {
                 if (!ungatheredScience.add(coord))
                     ungatheredScience.add(coord);
             }
-        }
-
-        /** Filter a list of coordinate, return coordinate that match the filter
-         * criteria */
-        private List<Coord> filterCoords(List<Coord> list, Science filterScience) {
-            return allScience.stream().filter((Coord c) -> c.science == filterScience)
-                    .collect(Collectors.toList());
-        }
-
-        /** Display all the science discovered onto the console */
-        private void displayResult() {
-
-            for (int i = 0; i < 5; i++) {
-                System.out.println();
-            }
-
-            displayFormatedList(filterCoords(allScience, Science.RADIOACTIVE), "RADIOACTIVE");
-            displayFormatedList(filterCoords(allScience, Science.CRYSTAL), "CRYSTAL");
-            displayFormatedList(filterCoords(allScience, Science.ORGANIC), "ORGANIC");
-            displayFormatedList(filterCoords(allScience, Science.MINERAL), "MINERAL");
-        }
-
-        /** Display result of a list, but only 3 result per line. */
-        private void displayFormatedList(List<Coord> coords, String message) {
-            System.out.println("***********************");
-            System.out.println(message);
-
-            for (int i = 0; i < coords.size(); i++) {
-
-                if (i % 3 == 0) {
-                    System.out.println();
-                }
-
-                /* Each science entry will take 15 "spaces" */
-                System.out.printf("%-15s", coords.get(i).toCommandCenterFormat());
-            }
-            System.out.println("\nTOTAL: " + coords.size());
         }
     }
 }
