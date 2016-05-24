@@ -8,9 +8,9 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
-
-import javax.swing.plaf.synth.SynthSpinnerUI;
 
 import common.Coord;
 import communication.Group;
@@ -92,16 +92,16 @@ public class CommandServer {
 
     /** Display all the science discovered onto the console */
     private void displayResult(List<Coord> list) {
-        
+
         synchronized (this) {
             System.out.println("*************************************");
-            
+
             displayFormatedList(filterCoords(list, Science.RADIOACTIVE), "RADIOACTIVE");
             displayFormatedList(filterCoords(list, Science.CRYSTAL), "CRYSTAL");
             displayFormatedList(filterCoords(list, Science.ORGANIC), "ORGANIC");
             displayFormatedList(filterCoords(list, Science.MINERAL), "MINERAL");
         }
-        
+
     }
 
     /** Display result of a list, but only 3 result per line. */
@@ -135,6 +135,12 @@ public class CommandServer {
         new Thread(new RebroadcastHandler()).start();
         System.out.println("REBROACAST Module Activated");
 
+        /* "The newCachedThreadPool() method creates a new thread if all the
+         * threads in the pool are not idle and there are tasks waiting for
+         * execution. A thread in a cached pool will be terminated if it has not
+         * been used for 60 seconds. A cached pool is efficient for many short
+         * tasks." Daniel Liang */
+        ExecutorService executor = Executors.newCachedThreadPool();
         while (true) {
 
             /* Wait for a connection */
@@ -142,7 +148,7 @@ public class CommandServer {
             System.out.println("Connection: " + connectionSocket.getInetAddress().toString());
 
             /* Serve the client on a separated Thread */
-            new Thread(new ClientHandler(connectionSocket)).start();
+            executor.execute(new ClientHandler(connectionSocket));
         }
     }
 
@@ -190,71 +196,68 @@ public class CommandServer {
              * That message will be received here. The science will be added
              * into a master list. After the science is added, display the
              * updated result onto the console. */
+
+            BufferedReader reader = null;
             try {
-                BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(clientSocket.getInputStream()));
+                reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-                try {
+                /* Read line */
+                String line = reader.readLine();
+                String[] result = line.split(" ");
 
-                    String line = reader.readLine();
-                    String[] result = line.split(" ");
+                /* Process data */
+                Terrain terrain = Terrain.valueOf(result[0]);
+                Science science = Science.valueOf(result[1]);
+                int xpos = Integer.valueOf(result[2]);
+                int ypos = Integer.valueOf(result[3]);
+                Coord coord = new Coord(terrain, science, xpos, ypos);
 
-                    if (result.length == 5 && result[4].equals("GATHERED")) {
-                        Terrain terrain = Terrain.valueOf(result[0]);
-                        Science science = Science.valueOf(result[1]);
-                        int xpos = Integer.valueOf(result[2]);
-                        int ypos = Integer.valueOf(result[3]);
+                if (result.length == 5 && result[4].equals("GATHERED")) {
 
-                        Coord coord = new Coord(terrain, science, xpos, ypos);
-                        System.out.println("Ungathered List: " + ungatheredScience.size());
-                        removeCoord(ungatheredScience, coord);
-                        System.out.println(
-                                "Ungathered List after removeal: " + ungatheredScience.size());
-                    } else if (result.length == 4) {
-                        Terrain terrain = Terrain.valueOf(result[0]);
-                        Science science = Science.valueOf(result[1]);
-                        int xpos = Integer.valueOf(result[2]);
-                        int ypos = Integer.valueOf(result[3]);
-                        Coord coord = new Coord(terrain, science, xpos, ypos);
+                    System.out.println("Ungathered List: " + ungatheredScience.size());
+                    removeCoord(ungatheredScience, coord);
+                    System.out
+                            .println("Ungathered List after removeal: " + ungatheredScience.size());
+                } else if (result.length == 4) {
 
-                        /* Add Science to the list if it is not already there */
-                        addCoordToLists(coord);
-                        
-                        /* Display result onto the console */
-                        displayResult(allScience);
+                    /* Add Science to the list if it is not already there */
+                    addCoordToLists(coord);
 
-                    }
-                } catch (SocketException e) {
-                    System.out.println("Connection Dropped");
-                } finally {
-                    if (reader != null) {
-                        reader.close();
-                    }
+                    /* Display result onto the console */
+                    displayResult(allScience);
                 }
+            } catch (SocketException e) {
+                System.out.println("Connection Dropped");
             } catch (Exception e) {
                 e.printStackTrace();
+            } finally {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
+    }
 
-        /** "Synchronized" removal of Science Coordinate */
-        private void removeCoord(List<Coord> list, Coord coord) {
+    /** "Synchronized" removal of Science Coordinate */
+    private void removeCoord(List<Coord> list, Coord coord) {
 
-            synchronized (list) {
-                list.remove(coord);
-            }
+        synchronized (list) {
+            list.remove(coord);
+        }
+    }
+
+    /** "Synchronized" addition of Science Coordinate */
+    private void addCoordToLists(Coord coord) {
+        synchronized (allScience) {
+            if (!allScience.contains(coord))
+                allScience.add(coord);
         }
 
-        /** "Synchronized" addition of Science Coordinate */
-        private void addCoordToLists(Coord coord) {
-            synchronized (allScience) {
-                if (!allScience.contains(coord))
-                    allScience.add(coord);
-            }
-
-            synchronized (ungatheredScience) {
-                if (!ungatheredScience.add(coord))
-                    ungatheredScience.add(coord);
-            }
+        synchronized (ungatheredScience) {
+            if (!ungatheredScience.add(coord))
+                ungatheredScience.add(coord);
         }
     }
 }
