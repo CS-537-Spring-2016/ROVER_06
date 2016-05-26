@@ -7,6 +7,7 @@ import java.util.List;
 
 import common.Coord;
 import common.MapTile;
+import common.ScanMap;
 import enums.Terrain;
 
 public class CommunicationServer implements Detector {
@@ -71,9 +72,9 @@ public class CommunicationServer implements Detector {
      * @param sightRange
      *            Either 3, if your radius is 7x7, or 5, if your radius is 11x11
      * @throws IOException */
-    public void detectAndShare(MapTile[][] map, Coord currentLoc, int sightRange)
+    public void detectAndShare(ScanMap scanMap, Coord currentLOC)
             throws IOException {
-        List<Coord> detectedSciences = detectScience(map, currentLoc, sightRange);
+        List<Coord> detectedSciences = detectScience(scanMap, currentLOC);
         List<Coord> newSciences = updateDiscoveries(detectedSciences);
         for (Coord c : newSciences) {
             shareScience(groupList, c);
@@ -83,8 +84,16 @@ public class CommunicationServer implements Detector {
     }
 
     @Override
-    public List<Coord> detectScience(MapTile[][] map, Coord rover_coord, int sightRange) {
+    public List<Coord> detectScience(ScanMap scanMap, Coord roverLOC) {
+
+        /* A list of all the science coordinates found in this map */
         List<Coord> scienceCoords = new ArrayList<Coord>();
+
+        /* Current map of surronding */
+        MapTile[][] map = scanMap.getScanMap();
+
+        /* Will return the center index */
+        int centerIndex = scanMap.getEdgeSize() / 2;
 
         /* iterate through every MapTile Object in the 2D Array. If the MapTile
          * contains science, calculate and save the coordinates of the tiles. */
@@ -94,8 +103,12 @@ public class CommunicationServer implements Detector {
                 MapTile mapTile = map[x][y];
 
                 if (Detector.DETECTABLE_SCIENCES.contains(mapTile.getScience())) {
-                    int tileX = rover_coord.xpos + (x - sightRange);
-                    int tileY = rover_coord.ypos + (y - sightRange);
+
+                    /* Use the ROVER current LOC (absoulte) and the scan map LOC
+                     * (relative) to calculate the true (absoulte) location of
+                     * the SCIENCE Coord. */
+                    int tileX = roverLOC.xpos + (x - centerIndex);
+                    int tileY = roverLOC.ypos + (y - centerIndex);
                     Coord coord = new Coord(mapTile.getTerrain(), mapTile.getScience(), tileX,
                             tileY);
                     scienceCoords.add(coord);

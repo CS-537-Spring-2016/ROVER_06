@@ -6,7 +6,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
 
 import com.google.gson.Gson;
@@ -40,7 +39,7 @@ public class ROVER_06 {
     /* swarm server constants */
     final String CURRENT_LOC = "LOC";
     final String TARGET_LOC = "TARGET_LOC";
-    final int SLEEP_TIME = 750;
+    final int SLEEP_TIME = 700;
     final int CENTER_INDEX = 5;
 
     /* communication module */
@@ -71,7 +70,7 @@ public class ROVER_06 {
         out = new PrintWriter(socket.getOutputStream(), true);
 
         // ********* SET UP COMMUNICATION MODULE *********
-        
+
         /* Your Group Info */
         Group group = new Group(rovername, SERVER_ADDRESS, 53706, RoverDriveType.WHEELS,
                 RoverToolType.RANGE_BOOSTER, RoverToolType.RADIATION_SENSOR);
@@ -305,7 +304,7 @@ public class ROVER_06 {
             return null;
     }
 
-    /* attempt to move around a "blocked" map tile */
+    /** attempt to move around a "blocked" map tile */
     private void goAround(String direction) throws InterruptedException, IOException {
 
         String previousDirection = "";
@@ -361,8 +360,15 @@ public class ROVER_06 {
         Coord previousLocation = roverTracker.getCurrentLocation();
         /* request the server to move the rover */
         out.println("MOVE " + direction);
-        getLocation();
 
+        /* Update rover current location */
+        roverTracker.setCurrentLocation(requestCurrentLOC());
+
+        /* Update the scan map */
+        this.doScan();
+        scanMap.debugPrintMap();
+
+        /* if the ROVER moved, update its distance tracker */
         if (!previousLocation.equals(roverTracker.getCurrentLocation())) {
             switch (direction.charAt(0)) {
             case ('N'):
@@ -379,16 +385,18 @@ public class ROVER_06 {
                 break;
             }
 
-            /* scan the map for radioactive */
-            communicationServer.detectAndShare(scanMap.getScanMap(),
-                    roverTracker.getCurrentLocation(), 5);
+            /* scan the map for science, share result to other ROVEERS, and
+             * dispaly science discovery summary */
+            communicationServer.detectAndShare(scanMap, roverTracker.getCurrentLocation());
 
-            /* summary */
+            /* display current loc, destination, distances to destination) */
             displaySummary();
         }
         Thread.sleep(SLEEP_TIME);
     }
 
+    /** Display summary of the current trip: current LOC, Destination LOC, and
+     * the x,y distance to the destination */
     private void displaySummary() {
         System.out.println(rovername + " Distance Left = " + roverTracker.getDistanceTracker().xpos
                 + "," + roverTracker.getDistanceTracker().ypos);
@@ -423,21 +431,30 @@ public class ROVER_06 {
                 || mapTile.getTerrain() == Terrain.ROCK || mapTile.getTerrain() == Terrain.NONE;
     }
 
-    /* Returns coordinate object that represents rover's current location */
-    private void getLocation() throws IOException, InterruptedException {
-        Coord previousLocation = roverTracker.getCurrentLocation();
+    /** s Returns coordinate object that represents rover's current location */
+    private Coord requestCurrentLOC() throws IOException, InterruptedException {
+
+        /* Coordinate of ROVER current Location */
+        Coord currentLOC = null;
+
+        /* Request LOC from Swarm Server */
         out.println("LOC");
+
+        /* Read the response from the server */
         String results = in.readLine();
+
+        /* No result probalby means ROVER disconnected from the server. For
+         * debugging purposes */
         if (results == null) {
             System.out.println(rovername + " check connection to server");
-            results = "";
         }
-        if (results.startsWith("LOC"))
-            roverTracker.setCurrentLocation(extractLOC(results));
-        if (!roverTracker.getCurrentLocation().equals(previousLocation)) {
-            this.doScan();
-            scanMap.debugPrintMap();
+
+        /* Process the data and convert to Coord object */
+        if (results.startsWith("LOC")) {
+            currentLOC = extractLOC(results);
         }
+
+        return currentLOC;
     }
 
     /** @param current
