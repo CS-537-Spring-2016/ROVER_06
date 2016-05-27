@@ -16,5 +16,5 @@ public interface Sender {
      * @param coord
      *            The coordinate that you want to share to other ROVERS
      * @throws IOException */
-    void shareScience(List<Group> groupList, Coord coord);
+    void shareScience(List<BlueCorp> groupList, Coord coord);
 }

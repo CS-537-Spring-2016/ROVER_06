@@ -17,10 +17,8 @@ import common.MapTile;
 import common.ScanMap;
 import common.State;
 import common.Tracker;
+import communication.BlueCorp;
 import communication.CommunicationServer;
-import communication.Group;
-import enums.RoverDriveType;
-import enums.RoverToolType;
 import enums.Terrain;
 
 /** The seed that this program is built on is a chat program example found here:
@@ -71,13 +69,9 @@ public class ROVER_06 {
 
         // ********* SET UP COMMUNICATION MODULE *********
 
-        /* Your Group Info */
-        Group group = new Group(rovername, SERVER_ADDRESS, 53706, RoverDriveType.WHEELS,
-                RoverToolType.RANGE_BOOSTER, RoverToolType.RADIATION_SENSOR);
-
         /* Setup communication Server */
-        communicationServer = new CommunicationServer(group);
-        communicationServer.setGroupList(Group.G99);
+        communicationServer = new CommunicationServer(BlueCorp.GROUP_06);
+        communicationServer.setGroupList(BlueCorp.COMMAND_CENTER);
 
         // ****************************************************************
 

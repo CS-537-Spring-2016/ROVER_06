@@ -1,6 +1,7 @@
 package command_center;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
@@ -15,7 +16,7 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 import common.Coord;
-import communication.Group;
+import communication.BlueCorp;
 import communication.RoverSender;
 import communication.Sender;
 import enums.RoverDriveType;
@@ -48,7 +49,7 @@ public class CommandServer {
 
     /** A List of groups that will receive a Coordinates of Science to still
      * need to be GATHRED */
-    private List<Group> broadcastGroups = new ArrayList<Group>();
+    private List<BlueCorp> broadcastGroups = new ArrayList<BlueCorp>();
 
     /** Communicate module use to write message to other ROVERS */
     private Sender sender = new RoverSender();
@@ -61,8 +62,8 @@ public class CommandServer {
     /** Add a Group, or Groups, to the broadcast list. Command Server will
      * rebroadcast all ungathered science to all the ROVERS in the broadcast
      * list */
-    public void addToBroadcastGroup(Group... groups) {
-        for (Group g : groups) {
+    public void addToBroadcastGroup(BlueCorp... groups) {
+        for (BlueCorp g : groups) {
             if (!broadcastGroups.contains(g))
                 broadcastGroups.add(g);
         }
@@ -71,12 +72,12 @@ public class CommandServer {
     /** @param groups
      *            List of groups you want the command server to rebroadcast
      *            too */
-    public void setBroadcastGroup(List<Group> groups) {
+    public void setBroadcastGroup(List<BlueCorp> groups) {
         broadcastGroups = groups;
     }
 
     /** @return The groups that will the command center will rebroadcast to. */
-    public List<Group> getBroadcastGroup() {
+    public List<BlueCorp> getBroadcastGroup() {
         return broadcastGroups;
     }
 
@@ -205,10 +206,9 @@ public class CommandServer {
                 }
             });
 
-            /* The first element should be the "closet" element to the ROVER */
+            /* The first element should be the "closet" element to the ROVER */   
             return filteredList.get(0);
         }
-
     }
 
     /** At the "broadcast rate", rebroadcast all ungathered science to the
@@ -263,49 +263,15 @@ public class CommandServer {
                 /* Read line */
                 String line = reader.readLine();
                 String[] result = line.split(" ");
-
-                /* Request to the server */
-                switch (result[0]) {
-                case "DISCOVERED":
-                    /* Add Science to the list if it is not already there */
-                    addCoordToLists(allScience, processCoordinate(result));
-                    break;
-                case "GATHERED":
-                    /* Remove Science from list */
-                    removeCoord(ungatheredScience, processCoordinate(result));
-                    break;
-                case "SCIENCE":
-                    /* Extract ROVER current LOC and Drive Type */
-                    Coord roverCurrentLOC = processCoordinate(result);
-                    List<Terrain> ignoreTerrains = impossibleTerrain(extractDriveType(result));
-                    Coord scienceCoord = findNearestScience(roverCurrentLOC, ignoreTerrains,
-                            ungatheredScience);
-
-                    /* TODO Respond with the nearest science */
-
+                
+                
+                if(result[0].equals("DISCOVERED") || result[0].equals("GATHERED") || result[0].equals("SCIENCE")) {
+                    doNewProtocol(result);
+                } else {
+                    doOldProtocol(result);
                 }
-
-                /* Process data */
-                Terrain terrain = Terrain.valueOf(result[0]);
-                Science science = Science.valueOf(result[1]);
-                int xpos = Integer.valueOf(result[2]);
-                int ypos = Integer.valueOf(result[3]);
-                Coord coord = new Coord(terrain, science, xpos, ypos);
-
-                if (result.length == 5 && result[4].equals("GATHERED")) {
-
-                    System.out.println("Ungathered List: " + ungatheredScience.size());
-                    removeCoord(ungatheredScience, coord);
-                    System.out
-                            .println("Ungathered List after removeal: " + ungatheredScience.size());
-                } else if (result.length == 4) {
-
-                    /* Add Science to the list if it is not already there */
-                    addCoordToLists(allScience, coord);
-
-                    /* Display result onto the console */
-                    displayResult(allScience);
-                }
+                    
+                
             } catch (SocketException e) {
                 System.out.println("Connection Dropped");
             } catch (Exception e) {
@@ -318,23 +284,102 @@ public class CommandServer {
                 }
             }
         }
+    }
+    
+    private void doNewProtocol(String[] result) throws IOException {
+        /* Request to the server */
+        switch (result[0]) {
+        case "DISCOVERED":
+            /* Add Science to the list if it is not already there */
+            addCoordToList(allScience, processScienceCoord(result));
+            addCoordToList(ungatheredScience, processScienceCoord(result));
+            /* Display result onto the console */
+            displayResult(allScience);
+            break;
+        case "GATHERED":
+            System.out.println("Ungathered List: " + ungatheredScience.size());
+            /* Remove Science from list */
+            removeCoord(ungatheredScience, processScienceCoord(result));
+            System.out
+            .println("Ungathered List after removeal: " + ungatheredScience.size());
+            break;
+        case "SCIENCE":
+            /* Extract ROVER current LOC and Drive Type */
+            Coord roverCurrentLOC = processRoverCoord(result);
+            List<Terrain> ignoreTerrains = impossibleTerrain(extractDriveType(result));
+            Coord scienceCoord = findNearestScience(roverCurrentLOC, ignoreTerrains,
+                    ungatheredScience);
+            BlueCorp group = extractGroup(result);
+            Socket socket = new Socket(group.ip, group.port);
 
+            /* Respond with the nearest science */
+            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+            if (scienceCoord == null) {
+                dos.writeBytes("SCIENCE NULL\n");
+            } else {
+                dos.writeBytes("SCIENCE " + scienceCoord.toProtocol() + "\n");
+            }
+            dos.close();
+            break;
+        }
+        
     }
 
-    private Coord processCoordinate(String[] line) {
+    private void doOldProtocol(String[] result) {
+        
+        /* Process data */
+        Terrain terrain = Terrain.valueOf(result[0]);
+        Science science = Science.valueOf(result[1]);
+        int xpos = Integer.valueOf(result[2]);
+        int ypos = Integer.valueOf(result[3]);
+        Coord coord = new Coord(terrain, science, xpos, ypos);
+
+        if (result.length == 5 && result[4].equals("GATHERED")) {
+
+            System.out.println("Ungathered List: " + ungatheredScience.size());
+            removeCoord(ungatheredScience, coord);
+            System.out
+                    .println("Ungathered List after removeal: " + ungatheredScience.size());
+        } else if (result.length == 4) {
+
+            /* Add Science to the list if it is not already there */
+            addCoordToList(allScience, coord);
+            addCoordToList(ungatheredScience, coord);
+
+            /* Display result onto the console */
+            displayResult(allScience);
+        }
+        
+    }
+
+    private Coord processScienceCoord(String[] line) {
         return new Coord(Terrain.valueOf(line[1]), Science.valueOf(line[2]),
                 Integer.valueOf(line[3]), Integer.valueOf(line[4]));
+    }
+    
+    private Coord processRoverCoord(String[] line) {
+        return new Coord(
+                Integer.valueOf(line[1]), Integer.valueOf(line[2]));
     }
 
     private RoverDriveType extractDriveType(String[] result) {
         try {
-            return RoverDriveType.valueOf(result[5]);
+            return RoverDriveType.valueOf(result[3]);
         } catch (Exception e) {
             System.out.println("Input: " + result + "\nInvalid Argument For Drive Type");
             return null;
         }
     }
-
+    
+    private BlueCorp extractGroup(String[] result) {
+        try {
+            return BlueCorp.valueOf(result[4]);
+        }  catch (Exception e){
+            return null;
+        }
+    }
+    
+    /**@return A List of Terrain that impossible to traverse base on Rover Drive Type */
     private List<Terrain> impossibleTerrain(RoverDriveType driveType) {
         switch (driveType) {
         case WHEELS:
@@ -356,15 +401,10 @@ public class CommandServer {
     }
 
     /** "Synchronized" addition of Science Coordinate */
-    private void addCoordToLists(List<Coord> list, Coord coord) {
+    private void addCoordToList(List<Coord> list, Coord coord) {
         synchronized (list) {
             if (!list.contains(coord))
                 list.add(coord);
-        }
-
-        synchronized (ungatheredScience) {
-            if (!ungatheredScience.add(coord))
-                ungatheredScience.add(coord);
         }
     }
 }

@@ -17,7 +17,7 @@ import common.Coord;
 public class RoverSender implements Sender{
 
     @Override
-    public void shareScience(List<Group> groupList, Coord coord) {
+    public void shareScience(List<BlueCorp> groupList, Coord coord) {
         /* Use Thread so the ROVER can move and communicate with other ROVERS concurrently. 
          * Else the ROVER will stop, broadcast Science Coordinates, then resume moving */
         new Thread(() -> {
@@ -28,10 +28,10 @@ public class RoverSender implements Sender{
              * been "rebroadcast", close the output stream. After all groups
              * have been served, sleep for "broadcast rate" then repeat the
              * loop again */
-            for (Group g : groupList) {
+            for (BlueCorp g : groupList) {
                 Socket socket;
                 try {
-                    socket = new Socket(g.getIp(), g.getPort());
+                    socket = new Socket(g.ip, g.port);
                     DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
                     dos.writeBytes(coord.toProtocol() + "\n");
                     dos.flush();
