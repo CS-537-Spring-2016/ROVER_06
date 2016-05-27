@@ -290,29 +290,41 @@ public class CommandServer {
         /* Request to the server */
         switch (result[0]) {
         case "DISCOVERED":
+            /* Protocol: DISCOVERED TERRAIN SCIENCE XPOS YPOS
+             * Example:  DISCOVERD SAND ORGANIC 25 32 */
+            
             /* Add Science to the list if it is not already there */
             addCoordToList(allScience, processScienceCoord(result));
             addCoordToList(ungatheredScience, processScienceCoord(result));
+            
             /* Display result onto the console */
             displayResult(allScience);
             break;
         case "GATHERED":
-            System.out.println("Ungathered List: " + ungatheredScience.size());
+            /* Protocol: DISCOVERED TERRAIN SCIENCE XPOS YPOS
+             * Example:  DISCOVERED SAND CRYSTAL 6 6 */
+            
             /* Remove Science from list */
             removeCoord(ungatheredScience, processScienceCoord(result));
+            
             System.out
-            .println("Ungathered List after removeal: " + ungatheredScience.size());
+            .println("GATHERED, ungather list size: " + ungatheredScience.size());
             break;
         case "SCIENCE":
-            /* Extract ROVER current LOC and Drive Type */
+            /* Protocol: SCIENCE XPOS YPOS BLUECORP
+             * Example:  SCIENCE 35 42 GROUP_01 */
+            
+            /* Extract ROVER current LOC and BlueCorp value */
             Coord roverCurrentLOC = processRoverCoord(result);
-            List<Terrain> ignoreTerrains = impossibleTerrain(extractDriveType(result));
+            BlueCorp group = extractGroup(result);
+            
+            /* Ignore TERRAINS that ROVER cannot traverse */
+            List<Terrain> ignoreTerrains = impossibleTerrain(group.driveType);
             Coord scienceCoord = findNearestScience(roverCurrentLOC, ignoreTerrains,
                     ungatheredScience);
-            BlueCorp group = extractGroup(result);
-            Socket socket = new Socket(group.ip, group.port);
 
             /* Respond with the nearest science */
+            Socket socket = new Socket(group.ip, group.port);
             DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
             if (scienceCoord == null) {
                 dos.writeBytes("SCIENCE NULL\n");
@@ -322,7 +334,6 @@ public class CommandServer {
             dos.close();
             break;
         }
-        
     }
 
     private void doOldProtocol(String[] result) {
@@ -349,7 +360,6 @@ public class CommandServer {
             /* Display result onto the console */
             displayResult(allScience);
         }
-        
     }
 
     private Coord processScienceCoord(String[] line) {
@@ -361,19 +371,10 @@ public class CommandServer {
         return new Coord(
                 Integer.valueOf(line[1]), Integer.valueOf(line[2]));
     }
-
-    private RoverDriveType extractDriveType(String[] result) {
-        try {
-            return RoverDriveType.valueOf(result[3]);
-        } catch (Exception e) {
-            System.out.println("Input: " + result + "\nInvalid Argument For Drive Type");
-            return null;
-        }
-    }
     
     private BlueCorp extractGroup(String[] result) {
         try {
-            return BlueCorp.valueOf(result[4]);
+            return BlueCorp.valueOf(result[3]);
         }  catch (Exception e){
             return null;
         }
