@@ -7,6 +7,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -16,6 +18,7 @@ import common.Coord;
 import communication.Group;
 import communication.RoverSender;
 import communication.Sender;
+import enums.RoverDriveType;
 import enums.Science;
 import enums.Terrain;
 
@@ -152,6 +155,62 @@ public class CommandServer {
         }
     }
 
+    /** Calculate the distance between two COORD object */
+    public double calculateDistance(Coord coordA, Coord coordB) {
+
+        /* The distance formula: SQUAREROOT((x2-x1)^2 + (y2-1)^2) */
+        return Math.sqrt(
+                Math.pow(coordB.xpos - coordA.xpos, 2) + (Math.pow(coordB.ypos - coordA.ypos, 2)));
+    }
+
+    /** @param terrainsToIgnore
+     *            A list of terrains that you want to filter out, ignore
+     * @return A list of COORD that are not on the ignore terrains */
+    public List<Coord> filterCoords(List<Coord> coords, List<Terrain> terrainsToIgnore) {
+        return coords.stream().filter((Coord c) -> !terrainsToIgnore.contains(c.terrain))
+                .collect(Collectors.toList());
+    }
+
+    /** @return COORD closet to the ROVER current location */
+    public Coord findNearestScience(Coord roverCurrentLOC, List<Terrain> terrainsToIgnore,
+            List<Coord> coords) {
+
+        /* Remove any COORD from list that is on "ignore" Terrain */
+        List<Coord> filteredList = filterCoords(coords, terrainsToIgnore);
+
+        if (filteredList.isEmpty()) {
+            /* If the list is empty, there are no nearest science to find */
+            return null;
+        } else if (filteredList.size() == 1) {
+            /* If there is only one COORD, surly it must be the closest to the
+             * ROVER! */
+            return filteredList.get(0);
+        } else {
+            /* Sort the list of COORD by the distance closet to the ROVER */
+            filteredList.sort(new Comparator<Coord>() {
+
+                @Override
+                /* Compare the distance from the list of COORDS to the ROVER currentLOC COORD */
+                public int compare(Coord c1, Coord c2) {
+                    double distance1 = calculateDistance(roverCurrentLOC, c1);
+                    double distance2 = calculateDistance(roverCurrentLOC, c2);
+
+                    if (distance1 < distance2) {
+                        return -1;
+                    } else if (distance1 == distance2) {
+                        return 0;
+                    } else {
+                        return 1;
+                    }
+                }
+            });
+
+            /* The first element should be the "closet" element to the ROVER */
+            return filteredList.get(0);
+        }
+
+    }
+
     /** At the "broadcast rate", rebroadcast all ungathered science to the
      * Groups in "broadcast group list". */
     class RebroadcastHandler implements Runnable {
@@ -205,6 +264,27 @@ public class CommandServer {
                 String line = reader.readLine();
                 String[] result = line.split(" ");
 
+                /* Request to the server */
+                switch (result[0]) {
+                case "DISCOVERED":
+                    /* Add Science to the list if it is not already there */
+                    addCoordToLists(allScience, processCoordinate(result));
+                    break;
+                case "GATHERED":
+                    /* Remove Science from list */
+                    removeCoord(ungatheredScience, processCoordinate(result));
+                    break;
+                case "SCIENCE":
+                    /* Extract ROVER current LOC and Drive Type */
+                    Coord roverCurrentLOC = processCoordinate(result);
+                    List<Terrain> ignoreTerrains = impossibleTerrain(extractDriveType(result));
+                    Coord scienceCoord = findNearestScience(roverCurrentLOC, ignoreTerrains,
+                            ungatheredScience);
+
+                    /* TODO Respond with the nearest science */
+
+                }
+
                 /* Process data */
                 Terrain terrain = Terrain.valueOf(result[0]);
                 Science science = Science.valueOf(result[1]);
@@ -221,7 +301,7 @@ public class CommandServer {
                 } else if (result.length == 4) {
 
                     /* Add Science to the list if it is not already there */
-                    addCoordToLists(coord);
+                    addCoordToLists(allScience, coord);
 
                     /* Display result onto the console */
                     displayResult(allScience);
@@ -238,21 +318,48 @@ public class CommandServer {
                 }
             }
         }
+
+    }
+
+    private Coord processCoordinate(String[] line) {
+        return new Coord(Terrain.valueOf(line[1]), Science.valueOf(line[2]),
+                Integer.valueOf(line[3]), Integer.valueOf(line[4]));
+    }
+
+    private RoverDriveType extractDriveType(String[] result) {
+        try {
+            return RoverDriveType.valueOf(result[5]);
+        } catch (Exception e) {
+            System.out.println("Input: " + result + "\nInvalid Argument For Drive Type");
+            return null;
+        }
+    }
+
+    private List<Terrain> impossibleTerrain(RoverDriveType driveType) {
+        switch (driveType) {
+        case WHEELS:
+            return Arrays.asList(Terrain.SAND, Terrain.ROCK);
+        case TREADS:
+            return Arrays.asList(Terrain.ROCK);
+        case WALKER:
+            return Arrays.asList(Terrain.SAND);
+        default:
+            return null;
+        }
     }
 
     /** "Synchronized" removal of Science Coordinate */
     private void removeCoord(List<Coord> list, Coord coord) {
-
         synchronized (list) {
             list.remove(coord);
         }
     }
 
     /** "Synchronized" addition of Science Coordinate */
-    private void addCoordToLists(Coord coord) {
-        synchronized (allScience) {
-            if (!allScience.contains(coord))
-                allScience.add(coord);
+    private void addCoordToLists(List<Coord> list, Coord coord) {
+        synchronized (list) {
+            if (!list.contains(coord))
+                list.add(coord);
         }
 
         synchronized (ungatheredScience) {
