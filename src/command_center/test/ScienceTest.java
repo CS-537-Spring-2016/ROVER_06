@@ -58,7 +58,7 @@ public class ScienceTest {
 
         socket = new Socket(BlueCorp.COMMAND_CENTER.ip, BlueCorp.COMMAND_CENTER.port);
         dos = new DataOutputStream(socket.getOutputStream());
-        dos.writeBytes("SCIENCE 23 15 TREADS G6\n");
+        dos.writeBytes("SCIENCE 23 15 GROUP_06\n");
         dos.flush();
         dos.close();
         socket.close();
