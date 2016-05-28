@@ -40,7 +40,6 @@ public class ROVER_06 {
     final String CURRENT_LOC = "LOC";
     final String TARGET_LOC = "TARGET_LOC";
     final int SLEEP_TIME = 700;
-    final int CENTER_INDEX = 5;
 
     /* communication module */
     CommunicationServer communicationServer;
@@ -73,8 +72,8 @@ public class ROVER_06 {
 
         /* Setup communication Server */
         communicationServer = new CommunicationServer(BlueCorp.GROUP_06);
-        communicationServer.setGroupList(BlueCorp.COMMAND_CENTER, BlueCorp.GROUP_07);
-
+        communicationServer.setGroupList(BlueCorp.getGatherers());
+        communicationServer.addGroupToList(BlueCorp.COMMAND_CENTER);
         // ****************************************************************
 
         // This sets the name of this instance of a swarmBot for

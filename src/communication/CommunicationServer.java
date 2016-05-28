@@ -43,6 +43,10 @@ public class CommunicationServer implements Detector {
     public void setGroupList(List<BlueCorp> groups) {
         groupList = removeSelfFromGroups(groups);
     }
+    
+    public void addGroupToList(BlueCorp group) {
+        groupList.add(group);
+    }
 
     /**
      * Start receiver server. receive incoming science coordinates from other
