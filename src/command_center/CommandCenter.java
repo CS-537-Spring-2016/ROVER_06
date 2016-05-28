@@ -18,7 +18,12 @@ public class CommandCenter {
     public static void main(String[] args) throws IOException {
 
         CommandServer commandCenter = new CommandServer(NAME, BlueCorp.COMMAND_CENTER.port);
-        commandCenter.addToBroadcastGroup(BlueCorp.GROUP_03);
+        commandCenter.addToBroadcastGroup(
+                BlueCorp.GROUP_01,
+                BlueCorp.GROUP_03,
+                BlueCorp.GROUP_04,
+                BlueCorp.GROUP_08,
+                BlueCorp.GROUP_09);
         commandCenter.setTimeWaitTillNextBroadcast(TIME_TILL_NEXT_BROADCAST);
         commandCenter.startServer();
     }

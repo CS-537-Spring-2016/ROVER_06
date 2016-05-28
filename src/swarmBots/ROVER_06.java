@@ -71,7 +71,7 @@ public class ROVER_06 {
 
         /* Setup communication Server */
         communicationServer = new CommunicationServer(BlueCorp.GROUP_06);
-        communicationServer.setGroupList(BlueCorp.COMMAND_CENTER);
+        communicationServer.setGroupList(BlueCorp.COMMAND_CENTER, BlueCorp.GROUP_07);
 
         // ****************************************************************
 
