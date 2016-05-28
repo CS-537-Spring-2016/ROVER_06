@@ -21,9 +21,11 @@ import communication.BlueCorp;
 import communication.CommunicationServer;
 import enums.Terrain;
 
-/** The seed that this program is built on is a chat program example found here:
+/**
+ * The seed that this program is built on is a chat program example found here:
  * http://cs.lmu.edu/~ray/notes/javanetexamples/ Many thanks to the authors for
- * publishing their code examples */
+ * publishing their code examples
+ */
 
 public class ROVER_06 {
 
@@ -203,11 +205,20 @@ public class ROVER_06 {
         return new Coord(Integer.parseInt(coordinates[1]), Integer.parseInt(coordinates[2]));
     }
 
-    /** This is how the ROVER moves. A lot of credit to GROUP 3. The majority of
+    /**
+     * This is how the ROVER moves. A lot of credit to GROUP 3. The majority of
      * these code came from them. Our code are similar but they implement a
      * method to head towards a certain location, while previously our ROVER was
      * mindlessly moving around obstacle. I've made some additional changes and
-     * Improvements */
+     * Improvements
+     * 
+     * 
+     * Thanks to group 3 for sharing their movement code. There code were better
+     * and cleaner then ours. Our original ROVER simply move mindlessly,
+     * circling the map and avoiding obstacle. It didn't know where to go.
+     * GROUP_03 had their ROVER move TOWARDS a location(X,Y). I made some changes
+     * here and there but the core logic is there's.
+     */
     private void startMission(Coord destination) throws IOException, InterruptedException {
 
         /* set up rover tracker before it start its mission */
@@ -237,8 +248,10 @@ public class ROVER_06 {
         }
     }
 
-    /** This method is used to decide what direction the rover will go next
-     * Priority: EAST, WEST, SOUTH, NORTH */
+    /**
+     * This method is used to decide what direction the rover will go next
+     * Priority: EAST, WEST, SOUTH, NORTH
+     */
     private String resolveDirection() {
         if (roverTracker.getDistanceTracker().xpos > 0)
             return "E";
@@ -261,8 +274,10 @@ public class ROVER_06 {
             Coord destination = roverTracker.getDestination();
             Coord current = roverTracker.getCurrentLocation();
 
-            /* if the rove arrives "sees" it destination and the map tile is
-             * blocked, then it will end the mission */
+            /*
+             * if the rove arrives "sees" it destination and the map tile is
+             * blocked, then it will end the mission
+             */
             if (isInDestinationRange(roverTracker.getDistanceTracker())
                     && isDestinationBlocked(current, destination)) {
                 System.out.println("Destination is blocked!");
@@ -283,8 +298,10 @@ public class ROVER_06 {
         }
     }
 
-    /** Calculate direction. Priority: E, W, S, N. This mean the rover will move
-     * left-right first. When it can't, it will move up-down */
+    /**
+     * Calculate direction. Priority: E, W, S, N. This mean the rover will move
+     * left-right first. When it can't, it will move up-down
+     */
     private String calculateDirection(int xVelocity, int yVelocity) {
         if (xVelocity == 1)
             return "E";
@@ -379,8 +396,10 @@ public class ROVER_06 {
                 break;
             }
 
-            /* scan the map for science, share result to other ROVEERS, and
-             * dispaly science discovery summary */
+            /*
+             * scan the map for science, share result to other ROVEERS, and
+             * dispaly science discovery summary
+             */
             communicationServer.detectAndShare(scanMap, roverTracker.getCurrentLocation());
 
             /* display current loc, destination, distances to destination) */
@@ -389,8 +408,10 @@ public class ROVER_06 {
         Thread.sleep(SLEEP_TIME);
     }
 
-    /** Display summary of the current trip: current LOC, Destination LOC, and
-     * the x,y distance to the destination */
+    /**
+     * Display summary of the current trip: current LOC, Destination LOC, and
+     * the x,y distance to the destination
+     */
     private void displaySummary() {
         System.out.println(rovername + " Distance Left = " + roverTracker.getDistanceTracker().xpos
                 + "," + roverTracker.getDistanceTracker().ypos);
@@ -417,9 +438,11 @@ public class ROVER_06 {
                 || map[roverX + xOffset][roverY + yOffset].getTerrain() == Terrain.SAND;
     }
 
-    /** @param mapTile
+    /**
+     * @param mapTile
      * @return true if the tile is "blocked" or not pass-able: SAND, ROCK, NONE,
-     *         or has a ROVER */
+     *         or has a ROVER
+     */
     private boolean blocked(MapTile mapTile) {
         return mapTile.getHasRover() || mapTile.getTerrain() == Terrain.SAND
                 || mapTile.getTerrain() == Terrain.ROCK || mapTile.getTerrain() == Terrain.NONE;
@@ -437,8 +460,10 @@ public class ROVER_06 {
         /* Read the response from the server */
         String results = in.readLine();
 
-        /* No result probalby means ROVER disconnected from the server. For
-         * debugging purposes */
+        /*
+         * No result probalby means ROVER disconnected from the server. For
+         * debugging purposes
+         */
         if (results == null) {
             System.out.println(rovername + " check connection to server");
         }
@@ -451,12 +476,14 @@ public class ROVER_06 {
         return currentLOC;
     }
 
-    /** @param current
+    /**
+     * @param current
      *            ROVER's current location
      * @param destination
      *            ROVER's destination location
      * @return true if the destination location is blocked, i.e. (location is on
-     *         a SAND, ROCK, NONE) tile */
+     *         a SAND, ROCK, NONE) tile
+     */
     private boolean isDestinationBlocked(Coord current, Coord destination) {
 
         MapTile[][] map = scanMap.getScanMap();
@@ -475,23 +502,29 @@ public class ROVER_06 {
         return false;
     }
 
-    /** @param distanceTracker
+    /**
+     * @param distanceTracker
      * @return true if the distance is within "range" of the ROVER. The rover
-     *         can see in a 11x11 range */
+     *         can see in a 11x11 range
+     */
     private boolean isInDestinationRange(Coord distanceTracker) {
 
-        /* 5 because the rover can only see 5 tiles NORTH, WEST, SOUTH, EAST.
-         * The rover is in the middle of the 11x11. */
+        /*
+         * 5 because the rover can only see 5 tiles NORTH, WEST, SOUTH, EAST.
+         * The rover is in the middle of the 11x11.
+         */
         boolean xInRange = distanceTracker.xpos <= 5;
         boolean yInRange = distanceTracker.ypos <= 5;
         return xInRange && yInRange;
     }
 
-    /** @param request
+    /**
+     * @param request
      *            The type of Coordinate you want from the server (LOC,
      *            TARGET_LOC)
      * @return The Swarm Server's response to your command
-     * @throws IOException */
+     * @throws IOException
+     */
     private Coord requestCoordFromServer(String request) throws IOException {
         String response;
         do {
@@ -501,8 +534,10 @@ public class ROVER_06 {
         return extractLOC(response);
     }
 
-    /** @return a coordinate in which the XPOS and YPOS is somewhere between the
-     *         starting and target XPOS and YPOS */
+    /**
+     * @return a coordinate in which the XPOS and YPOS is somewhere between the
+     *         starting and target XPOS and YPOS
+     */
     private Coord generateRandomCoord() {
         int xLow = startCoord.xpos;
         int xHigh = targetCoord.xpos;

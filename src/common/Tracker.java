@@ -4,6 +4,13 @@ import java.util.Stack;
 
 import common.Coord;
 
+/**
+ * Thanks to group 3 for sharing their movement code. There code were better and
+ * cleaner then ours. I made some changes here and there but the majority of the
+ * code is still there's
+ * 
+ * @author group_03
+ */
 public class Tracker {
 
     // Will have location coordinate and direction rover went in a string
@@ -24,7 +31,6 @@ public class Tracker {
         currentLocation = new Coord(0, 0);
         markers = new Stack<State>();
     }
-    
 
     public void setCurrentLocation(Coord currentLocation) {
         this.currentLocation = currentLocation;
@@ -104,7 +110,7 @@ public class Tracker {
     public boolean hasArrived() {
         return distanceTracker.xpos == 0 && distanceTracker.ypos == 0;
     }
-    
+
     public void setArrived(boolean arrived) {
         if (arrived) {
             distanceTracker.xpos = 0;
@@ -118,12 +124,13 @@ public class Tracker {
     }
 
     public boolean atTargetLocation(Coord location) {
-        return location.xpos == targetLocation.xpos
-                && location.ypos == targetLocation.ypos;
+        return location.xpos == targetLocation.xpos && location.ypos == targetLocation.ypos;
     }
 
-    /** set Tracker's starting point and destination. calculate the distance
-     * to destination */
+    /**
+     * set Tracker's starting point and destination. calculate the distance to
+     * destination
+     */
     public void initDestination(Coord destination) {
 
         startingPoint = currentLocation;
